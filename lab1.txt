@@ -73,5 +73,4 @@ int main()
     else if (q == 7) q7();
     else if (q == 8) q8();
 
-
 }
