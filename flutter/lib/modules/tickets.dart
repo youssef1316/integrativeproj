@@ -1,19 +1,50 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-//import events class
 
-class Tickets {
-  String ticketID;
-  String ssn = "";
-  String eventID;
-  String type;
+class Ticket {
+  // Use final for fields that don't change after creation
+  final String ticketId; // Unique ID for this specific ticket (e.g., eventId-Level-001)
+  final String eventId;  // ID of the event this ticket belongs to
+  final String levelName;// Name of the ticket level (e.g., "Gold", "Regular")
+  final double price;    // Price of this ticket level
+  final String status;   // e.g., "available", "sold", "checked_in", "cancelled"
+  final String? userId;  // UID of the user who bought it (null if available)
+  final Timestamp? purchaseTimestamp; // When it was bought (null if available)
 
-  Tickets({
-    required this.ticketID,
-    required this.eventID,
-    required this.type,
-
+  Ticket({
+    required this.ticketId,
+    required this.eventId,
+    required this.levelName,
+    required this.price,
+    this.status = 'available', // Default status
+    this.userId,
+    this.purchaseTimestamp,
   });
 
+  // Helper method to convert Ticket object to a Map for Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'ticketId': ticketId,
+      'eventId': eventId,
+      'levelName': levelName,
+      'price': price,
+      'status': status,
+      'userId': userId, // Will be null initially
+      'purchaseTimestamp': purchaseTimestamp, // Will be null initially
+      // You might add lastUpdated timestamp here too
+    };
+  }
 
-
+  // // Optional: Factory constructor to create from Firestore map (useful later)
+  // // factory Ticket.fromMap(Map<String, dynamic> map, String documentId) {
+  // //   return Ticket(
+  // //     ticketId: map['ticketId'] ?? documentId,
+  // //     eventId: map['eventId'] ?? '',
+  // //     levelName: map['levelName'] ?? '',
+  // //     price: (map['price'] as num?)?.toDouble() ?? 0.0,
+  // * status: map['status'] ?? 'unknown',
+  // * userId: map['userId'] as String?,
+  // * purchaseTimestamp: map['purchaseTimestamp'] as Timestamp?,
+  // * );
+  // * }
 }
