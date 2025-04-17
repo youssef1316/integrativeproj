@@ -4,9 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // Import main.dart (or your routes file) to access the central AppRoutes
 import 'package:eventmangment/main.dart';
 
-// --- REMOVED Duplicate AppRoutes class definition ---
-// class AppRoutes { ... } // This was removed from here
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 

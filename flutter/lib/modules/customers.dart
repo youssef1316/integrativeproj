@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'tickets.dart';
 
 class Customers {
   String ssn;
@@ -8,7 +7,6 @@ class Customers {
   String email;
   String password;
   String phone;
-  List<Tickets> boughtTickets=[];
 
   Customers({
     required this.ssn,
@@ -19,9 +17,5 @@ class Customers {
     required this.phone,
 
   });
-
-  void buyTickets(List<Tickets> tickets){
-    boughtTickets.addAll(tickets);
-  }
 
 }
