@@ -1,464 +1,463 @@
 // lib/pages/eventcreation.dart
 
 import 'package:flutter/material.dart';
-import 'package:eventmangment/modules/events.dart'; // Ensure Events model includes 'DateTime? eventDate;' [cite: flutter/lib/modules/events.dart]
-import 'package:eventmangment/modules/Artists.dart'; // [cite: flutter/lib/modules/Artists.dart]
-import 'package:eventmangment/modules/catering.dart'; // [cite: flutter/lib/modules/catering.dart]
-import 'package:eventmangment/modules/tickets.dart'; // Ensure Ticket model is updated [cite: flutter/lib/modules/tickets.dart]
-import 'package:cloud_firestore/cloud_firestore.dart'; // [cite: flutter/lib/pages/eventcreation.dart]
-import 'package:flutter/services.dart'; // [cite: flutter/lib/pages/eventcreation.dart]
-import 'package:intl/intl.dart'; // Import intl package for date formatting
+import 'package:eventmangment/modules/events.dart'; // Ensure includes eventDate
+import 'package:eventmangment/modules/Artists.dart'; //
+import 'package:eventmangment/modules/catering.dart'; //
+import 'package:eventmangment/modules/tickets.dart'; // Ensure Ticket has toMap
+import 'package:cloud_firestore/cloud_firestore.dart'; //
+import 'package:flutter/services.dart'; //
+import 'package:intl/intl.dart'; // Needed for DateFormat
 
-// --- Constants --- (Copied from your provided code)
-class _AppPaddings { // [cite: flutter/lib/pages/eventcreation.dart]
-  static const EdgeInsets screen = EdgeInsets.all(16.0); // [cite: flutter/lib/pages/eventcreation.dart]
-  static const EdgeInsets formField = EdgeInsets.symmetric(vertical: 8.0); // [cite: flutter/lib/pages/eventcreation.dart]
-  static const EdgeInsets sectionSpacing = EdgeInsets.only(top: 16.0, bottom: 8.0); // [cite: flutter/lib/pages/eventcreation.dart]
-  static const EdgeInsets button = EdgeInsets.symmetric(vertical: 12, horizontal: 24); // [cite: flutter/lib/pages/eventcreation.dart]
+// --- Constants ---
+class _AppPaddings { //
+  static const EdgeInsets screen = EdgeInsets.all(16.0);
+  static const EdgeInsets formField = EdgeInsets.symmetric(vertical: 8.0);
+  static const EdgeInsets sectionSpacing = EdgeInsets.only(top: 16.0, bottom: 8.0);
+  static const EdgeInsets button = EdgeInsets.symmetric(vertical: 12, horizontal: 24);
 }
 
-class _AppTextStyles { // [cite: flutter/lib/pages/eventcreation.dart]
-  static const TextStyle button = TextStyle( // [cite: flutter/lib/pages/eventcreation.dart]
-    fontSize: 18, // [cite: flutter/lib/pages/eventcreation.dart]
-    fontWeight: FontWeight.bold, // [cite: flutter/lib/pages/eventcreation.dart]
-    color: Colors.white, // [cite: flutter/lib/pages/eventcreation.dart]
+class _AppTextStyles { //
+  static const TextStyle button = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
   );
-  static const TextStyle sectionHeader = TextStyle( // [cite: flutter/lib/pages/eventcreation.dart]
-    fontSize: 18, // [cite: flutter/lib/pages/eventcreation.dart]
-    fontWeight: FontWeight.bold, // [cite: flutter/lib/pages/eventcreation.dart]
-    color: Colors.blueAccent, // [cite: flutter/lib/pages/eventcreation.dart]
+  static const TextStyle sectionHeader = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Colors.blueAccent,
   );
 }
 
-class _AppColors { // [cite: flutter/lib/pages/eventcreation.dart]
-  static const Color primaryBackground = Colors.white; // [cite: flutter/lib/pages/eventcreation.dart]
-  static const Color appBarBackground = Colors.white; // [cite: flutter/lib/pages/eventcreation.dart]
-  static const Color appBarForeground = Colors.black; // [cite: flutter/lib/pages/eventcreation.dart]
-  static const Color buttonBackground = Colors.red; // [cite: flutter/lib/pages/eventcreation.dart]
-  static const Color buttonBorder = Colors.blueAccent; // [cite: flutter/lib/pages/eventcreation.dart]
+class _AppColors { //
+  static const Color primaryBackground = Colors.white;
+  static const Color appBarBackground = Colors.white;
+  static const Color appBarForeground = Colors.black;
+  static const Color buttonBackground = Colors.red;
+  static const Color buttonBorder = Colors.blueAccent;
 }
 // --- End Constants ---
 
-class EventCreationPage extends StatefulWidget { // [cite: flutter/lib/pages/eventcreation.dart]
-  const EventCreationPage({super.key}); // [cite: flutter/lib/pages/eventcreation.dart]
+class EventCreationPage extends StatefulWidget { //
+  const EventCreationPage({super.key}); //
 
   @override
-  _EventCreationPageState createState() => _EventCreationPageState(); // [cite: flutter/lib/pages/eventcreation.dart]
+  _EventCreationPageState createState() => _EventCreationPageState(); //
 }
 
-class _EventCreationPageState extends State<EventCreationPage> { // [cite: flutter/lib/pages/eventcreation.dart]
-  final _formKey = GlobalKey<FormState>(); // [cite: flutter/lib/pages/eventcreation.dart]
-  bool _isLoading = false; // [cite: flutter/lib/pages/eventcreation.dart]
+class _EventCreationPageState extends State<EventCreationPage> { //
+  final _formKey = GlobalKey<FormState>(); //
+  bool _isLoading = false; //
 
   // --- Event Controllers ---
-  final _eventIdController = TextEditingController(); // [cite: flutter/lib/pages/eventcreation.dart]
-  final _nameController = TextEditingController(); // [cite: flutter/lib/pages/eventcreation.dart]
-  final _locController = TextEditingController(); // [cite: flutter/lib/pages/eventcreation.dart]
-  final _dateController = TextEditingController(); // Controller to DISPLAY the selected date // [cite: flutter/lib/pages/eventcreation.dart]
-  final _slotnumController = TextEditingController(); // [cite: flutter/lib/pages/eventcreation.dart]
+  final _eventIdController = TextEditingController(); //
+  final _nameController = TextEditingController(); //
+  final _locController = TextEditingController(); //
+  final _dateController = TextEditingController(); // Controller to DISPLAY the selected date //
+  final _slotnumController = TextEditingController(); //
 
   // --- State variable to store the selected date ---
   DateTime? _selectedDate;
 
   // --- Artist Section State ---
-  final _numofartistController = TextEditingController(); // [cite: flutter/lib/pages/eventcreation.dart]
-  List<TextEditingController> _artistIdControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-  List<TextEditingController> _artistNameControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-  List<TextEditingController> _artistSlotControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-  int _currentNumArtists = 0; // [cite: flutter/lib/pages/eventcreation.dart]
+  final _numofartistController = TextEditingController(); //
+  List<TextEditingController> _artistIdControllers = []; //
+  List<TextEditingController> _artistNameControllers = []; //
+  List<TextEditingController> _artistSlotControllers = []; //
+  int _currentNumArtists = 0; //
 
   // --- Catering Section State ---
-  final _numofcateringController = TextEditingController(); // [cite: flutter/lib/pages/eventcreation.dart]
-  List<TextEditingController> _cateringController = []; // [cite: flutter/lib/pages/eventcreation.dart]
-  int _currentNumCatering = 0; // [cite: flutter/lib/pages/eventcreation.dart]
+  final _numofcateringController = TextEditingController(); //
+  List<TextEditingController> _cateringController = []; //
+  int _currentNumCatering = 0; //
 
   // --- Ticket Level Section State ---
-  List<TextEditingController> _ticketLevelNameControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-  List<TextEditingController> _ticketLevelCountControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-  List<TextEditingController> _ticketLevelPriceControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
+  List<TextEditingController> _ticketLevelNameControllers = []; //
+  List<TextEditingController> _ticketLevelCountControllers = []; //
+  List<TextEditingController> _ticketLevelPriceControllers = []; //
 
   @override
-  void initState() { // [cite: flutter/lib/pages/eventcreation.dart]
+  void initState() { //
     super.initState();
-    _addTicketLevel(); // Initialize with one ticket level row // [cite: flutter/lib/pages/eventcreation.dart]
+    // Start with one ticket level row by default
+    _addTicketLevel(); //
   }
 
   @override
-  void dispose() { // [cite: flutter/lib/pages/eventcreation.dart]
+  void dispose() { //
     // Dispose all controllers
-    _eventIdController.dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _nameController.dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _locController.dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _dateController.dispose(); // Dispose the date controller // [cite: flutter/lib/pages/eventcreation.dart]
-    _slotnumController.dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _numofartistController.dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _numofcateringController.dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _artistIdControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _artistNameControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _artistSlotControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _cateringController.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _ticketLevelNameControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _ticketLevelCountControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _ticketLevelPriceControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    super.dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
+    _eventIdController.dispose(); //
+    _nameController.dispose(); //
+    _locController.dispose(); //
+    _dateController.dispose(); // Dispose date controller //
+    _slotnumController.dispose(); //
+    _numofartistController.dispose(); //
+    _numofcateringController.dispose(); //
+    _artistIdControllers.forEach((c) => c.dispose()); //
+    _artistNameControllers.forEach((c) => c.dispose()); //
+    _artistSlotControllers.forEach((c) => c.dispose()); //
+    _cateringController.forEach((c) => c.dispose()); //
+    _ticketLevelNameControllers.forEach((c) => c.dispose()); //
+    _ticketLevelCountControllers.forEach((c) => c.dispose()); //
+    _ticketLevelPriceControllers.forEach((c) => c.dispose()); //
+    super.dispose(); //
   }
 
   // --- Field Generation Logic for Artists ---
-  void _generateArtistFields() { // [cite: flutter/lib/pages/eventcreation.dart]
-    FocusScope.of(context).unfocus(); // [cite: flutter/lib/pages/eventcreation.dart]
-    int? numArt = int.tryParse(_numofartistController.text); // [cite: flutter/lib/pages/eventcreation.dart]
-    if (numArt == null || numArt < 0) { // Allow 0 artists
+  void _generateArtistFields() { //
+    FocusScope.of(context).unfocus(); //
+    int? numArt = int.tryParse(_numofartistController.text); //
+    // Allow 0 artists
+    if (numArt == null || numArt < 0) { //
       _showSnackBar('Please enter a valid non-negative number of artists.');
-      // Reset if invalid but allow 0
       if (numArt != 0) _numofartistController.clear();
       numArt = 0;
-      // return; // Allow setting 0 artists
+      // return; // Allow 0
     }
     // Dispose old controllers
-    _artistIdControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _artistNameControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-    _artistSlotControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
+    _artistIdControllers.forEach((c) => c.dispose()); //
+    _artistNameControllers.forEach((c) => c.dispose()); //
+    _artistSlotControllers.forEach((c) => c.dispose()); //
     // Create new controllers
-    setState(() { // [cite: flutter/lib/pages/eventcreation.dart]
-      _artistIdControllers = List.generate(numArt!, (_) => TextEditingController()); // [cite: flutter/lib/pages/eventcreation.dart]
-      _artistNameControllers = List.generate(numArt, (_) => TextEditingController()); // [cite: flutter/lib/pages/eventcreation.dart]
-      _artistSlotControllers = List.generate(numArt, (_) => TextEditingController()); // [cite: flutter/lib/pages/eventcreation.dart]
-      _currentNumArtists = numArt; // [cite: flutter/lib/pages/eventcreation.dart]
+    setState(() { //
+      _artistIdControllers = List.generate(numArt!, (_) => TextEditingController()); //
+      _artistNameControllers = List.generate(numArt, (_) => TextEditingController()); //
+      _artistSlotControllers = List.generate(numArt, (_) => TextEditingController()); //
+      _currentNumArtists = numArt; //
     });
   }
 
   // --- Field Generation Logic for Catering ---
-  void _generateCateringFields() { // [cite: flutter/lib/pages/eventcreation.dart]
-    FocusScope.of(context).unfocus(); // [cite: flutter/lib/pages/eventcreation.dart]
-    int? numCat = int.tryParse(_numofcateringController.text); // [cite: flutter/lib/pages/eventcreation.dart]
-    if (numCat == null || numCat < 0) { // Allow 0 catering companies
+  void _generateCateringFields() { //
+    FocusScope.of(context).unfocus(); //
+    int? numCat = int.tryParse(_numofcateringController.text); //
+    // Allow 0 catering
+    if (numCat == null || numCat < 0) { //
       _showSnackBar('Please enter a valid non-negative number for catering companies.');
       if (numCat != 0) _numofcateringController.clear();
       numCat = 0;
-      // return; // Allow setting 0
+      // return; // Allow 0
     }
     // Dispose old controllers
-    _cateringController.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
+    _cateringController.forEach((c) => c.dispose()); //
     // Create new controllers
-    setState(() { // [cite: flutter/lib/pages/eventcreation.dart]
-      _cateringController = List.generate(numCat!, (_) => TextEditingController()); // [cite: flutter/lib/pages/eventcreation.dart]
-      _currentNumCatering = numCat; // [cite: flutter/lib/pages/eventcreation.dart]
+    setState(() { //
+      _cateringController = List.generate(numCat!, (_) => TextEditingController()); //
+      _currentNumCatering = numCat; //
     });
   }
 
   // --- Ticket Level Field Management ---
-  void _addTicketLevel() { // [cite: flutter/lib/pages/eventcreation.dart]
-    setState(() { // [cite: flutter/lib/pages/eventcreation.dart]
-      _ticketLevelNameControllers.add(TextEditingController()); // [cite: flutter/lib/pages/eventcreation.dart]
-      _ticketLevelCountControllers.add(TextEditingController()); // [cite: flutter/lib/pages/eventcreation.dart]
-      _ticketLevelPriceControllers.add(TextEditingController()); // [cite: flutter/lib/pages/eventcreation.dart]
+  void _addTicketLevel() { //
+    setState(() { //
+      _ticketLevelNameControllers.add(TextEditingController()); //
+      _ticketLevelCountControllers.add(TextEditingController()); //
+      _ticketLevelPriceControllers.add(TextEditingController()); //
     });
   }
 
-  void _removeTicketLevel(int index) { // [cite: flutter/lib/pages/eventcreation.dart]
-    _ticketLevelNameControllers[index].dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _ticketLevelCountControllers[index].dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    _ticketLevelPriceControllers[index].dispose(); // [cite: flutter/lib/pages/eventcreation.dart]
-    setState(() { // [cite: flutter/lib/pages/eventcreation.dart]
-      _ticketLevelNameControllers.removeAt(index); // [cite: flutter/lib/pages/eventcreation.dart]
-      _ticketLevelCountControllers.removeAt(index); // [cite: flutter/lib/pages/eventcreation.dart]
-      _ticketLevelPriceControllers.removeAt(index); // [cite: flutter/lib/pages/eventcreation.dart]
+  void _removeTicketLevel(int index) { //
+    _ticketLevelNameControllers[index].dispose(); //
+    _ticketLevelCountControllers[index].dispose(); //
+    _ticketLevelPriceControllers[index].dispose(); //
+    setState(() { //
+      _ticketLevelNameControllers.removeAt(index); //
+      _ticketLevelCountControllers.removeAt(index); //
+      _ticketLevelPriceControllers.removeAt(index); //
     });
   }
 
   // --- Date Picker Logic ---
   Future<void> _selectDate(BuildContext context) async {
-    FocusScope.of(context).unfocus();
+    FocusScope.of(context).unfocus(); // Hide keyboard first
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now().subtract(const Duration(days: 1)), // Allow today
-      lastDate: DateTime(2101),
+      lastDate: DateTime(2101), // Or a more reasonable upper limit
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
-        _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
+        _dateController.text = DateFormat('yyyy-MM-dd').format(picked); // Format for display
       });
-      // Manually trigger validation for the date field if needed immediately
-      _formKey.currentState?.validate();
+      // Optional: trigger validation manually if needed right after picking
+      // _formKey.currentState?.validate();
     }
   }
 
   // --- Form Submission Logic ---
-  Future<void> _submitForm() async { // [cite: flutter/lib/pages/eventcreation.dart]
-    // 1. Validate all form fields
-    if (!_formKey.currentState!.validate()) { // [cite: flutter/lib/pages/eventcreation.dart]
-      _showSnackBar('Please fix the errors in the form.'); // [cite: flutter/lib/pages/eventcreation.dart]
-      return; // [cite: flutter/lib/pages/eventcreation.dart]
+  Future<void> _submitForm() async { //
+    // 1. Validate form
+    if (!_formKey.currentState!.validate()) { //
+      _showSnackBar('Please fix the errors in the form.'); //
+      return; //
     }
-    // Date is validated by its TextFormField validator checking _selectedDate
+    // Date is validated via its TextFormField checking _selectedDate
 
-    // 2. Show Loading Indicator
-    setState(() { _isLoading = true; }); // [cite: flutter/lib/pages/eventcreation.dart]
+    // 2. Show Loading
+    setState(() { _isLoading = true; }); //
 
-    final firestore = FirebaseFirestore.instance; // [cite: flutter/lib/pages/eventcreation.dart]
-    final WriteBatch batch = firestore.batch(); // [cite: flutter/lib/pages/eventcreation.dart]
+    final firestore = FirebaseFirestore.instance; //
+    final WriteBatch batch = firestore.batch(); //
 
-    try { // [cite: flutter/lib/pages/eventcreation.dart]
+    try { //
       // 3. Gather Event base data
-      String eventId = _eventIdController.text.trim(); // [cite: flutter/lib/pages/eventcreation.dart]
-      String eventName = _nameController.text.trim(); // [cite: flutter/lib/pages/eventcreation.dart]
-      String eventLoc = _locController.text.trim(); // [cite: flutter/lib/pages/eventcreation.dart]
-      int eventSlotnum = int.parse(_slotnumController.text.trim()); // [cite: flutter/lib/pages/eventcreation.dart]
-      // Convert selected DateTime to Firestore Timestamp
-      // The validator ensures _selectedDate is not null at this point
+      String eventId = _eventIdController.text.trim(); //
+      String eventName = _nameController.text.trim(); //
+      String eventLoc = _locController.text.trim(); //
+      int eventSlotnum = int.parse(_slotnumController.text.trim()); //
+      // --- Convert selected DateTime to Firestore Timestamp ---
+      // Validation ensures _selectedDate is not null here
       Timestamp eventTimestamp = Timestamp.fromDate(_selectedDate!);
 
       // 3a. Gather Artist map data
-      List<Map<String, dynamic>> artistsData = []; // [cite: flutter/lib/pages/eventcreation.dart]
-      for (int i = 0; i < _currentNumArtists; i++) { // [cite: flutter/lib/pages/eventcreation.dart]
-        // Validation now happens in the TextFormField's validator
-        artistsData.add({ // [cite: flutter/lib/pages/eventcreation.dart]
-          'artistID': _artistIdControllers[i].text.trim(), // [cite: flutter/lib/pages/eventcreation.dart]
-          'name': _artistNameControllers[i].text.trim(), // [cite: flutter/lib/pages/eventcreation.dart]
-          'slot': int.parse(_artistSlotControllers[i].text.trim()), // Parse validated string // [cite: flutter/lib/pages/eventcreation.dart]
+      List<Map<String, dynamic>> artistsData = []; //
+      for (int i = 0; i < _currentNumArtists; i++) { //
+        // Assuming validation was handled by TextFormFields
+        artistsData.add({ //
+          'artistID': _artistIdControllers[i].text.trim(), //
+          'name': _artistNameControllers[i].text.trim(), //
+          'slot': int.parse(_artistSlotControllers[i].text.trim()), //
         });
       }
 
       // 3b. Gather Catering map data
-      List<Map<String, dynamic>> cateringData = []; // [cite: flutter/lib/pages/eventcreation.dart]
-      for (int j = 0; j < _currentNumCatering; j++) { // [cite: flutter/lib/pages/eventcreation.dart]
-        // Validation now happens in the TextFormField's validator
-        cateringData.add({'CompName': _cateringController[j].text.trim()}); // [cite: flutter/lib/pages/eventcreation.dart]
+      List<Map<String, dynamic>> cateringData = []; //
+      for (int j = 0; j < _currentNumCatering; j++) { //
+        // Assuming validation was handled by TextFormFields
+        cateringData.add({'CompName': _cateringController[j].text.trim()}); //
       }
 
       // 3c. Gather and Validate Ticket Level definitions
-      List<Map<String, dynamic>> ticketLevelsData = []; // [cite: flutter/lib/pages/eventcreation.dart]
-      if (_ticketLevelNameControllers.isEmpty) { // [cite: flutter/lib/pages/eventcreation.dart]
-        _showSnackBar('Please add at least one ticket level.'); // [cite: flutter/lib/pages/eventcreation.dart]
-        setState(() { _isLoading = false; }); // [cite: flutter/lib/pages/eventcreation.dart]
-        return; // [cite: flutter/lib/pages/eventcreation.dart]
+      List<Map<String, dynamic>> ticketLevelsData = []; //
+      if (_ticketLevelNameControllers.isEmpty) { //
+        _showSnackBar('Please add at least one ticket level.'); //
+        setState(() { _isLoading = false; }); //
+        return; //
       }
-      for (int k = 0; k < _ticketLevelNameControllers.length; k++) { // [cite: flutter/lib/pages/eventcreation.dart]
-        // Validation happens via TextFormField validators
-        String levelName = _ticketLevelNameControllers[k].text.trim(); // [cite: flutter/lib/pages/eventcreation.dart]
-        int ticketCount = int.parse(_ticketLevelCountControllers[k].text.trim()); // Use validated string // [cite: flutter/lib/pages/eventcreation.dart]
-        double ticketPrice = double.parse(_ticketLevelPriceControllers[k].text.trim()); // Use validated string // [cite: flutter/lib/pages/eventcreation.dart]
-        ticketLevelsData.add({ // [cite: flutter/lib/pages/eventcreation.dart]
-          'levelName': levelName, // [cite: flutter/lib/pages/eventcreation.dart]
-          'count': ticketCount, // [cite: flutter/lib/pages/eventcreation.dart]
-          'price': ticketPrice, // [cite: flutter/lib/pages/eventcreation.dart]
+      for (int k = 0; k < _ticketLevelNameControllers.length; k++) { //
+        // Assuming validation was handled by TextFormFields
+        String levelName = _ticketLevelNameControllers[k].text.trim(); //
+        int ticketCount = int.parse(_ticketLevelCountControllers[k].text.trim()); //
+        double ticketPrice = double.parse(_ticketLevelPriceControllers[k].text.trim()); //
+        ticketLevelsData.add({ //
+          'levelName': levelName, //
+          'count': ticketCount, //
+          'price': ticketPrice, //
         });
       }
 
       // 4. Prepare Event Document Data for Firestore
-      Map<String, dynamic> eventDocData = { // [cite: flutter/lib/pages/eventcreation.dart]
-        'eventId': eventId, // [cite: flutter/lib/pages/eventcreation.dart]
-        'name': eventName, // [cite: flutter/lib/pages/eventcreation.dart]
-        'loc': eventLoc, // [cite: flutter/lib/pages/eventcreation.dart]
+      Map<String, dynamic> eventDocData = { //
+        'eventId': eventId, //
+        'name': eventName, //
+        'loc': eventLoc, //
         'eventDate': eventTimestamp, // Added event date
-        'slotnum': eventSlotnum, // [cite: flutter/lib/pages/eventcreation.dart]
-        'artists': artistsData, // [cite: flutter/lib/pages/eventcreation.dart]
-        'catering': cateringData, // [cite: flutter/lib/pages/eventcreation.dart]
-        'ticketLevels': ticketLevelsData, // [cite: flutter/lib/pages/eventcreation.dart]
-        'createdAt': FieldValue.serverTimestamp(), // [cite: flutter/lib/pages/eventcreation.dart]
+        'slotnum': eventSlotnum, //
+        'artists': artistsData, //
+        'catering': cateringData, //
+        'ticketLevels': ticketLevelsData, //
+        'createdAt': FieldValue.serverTimestamp(), //
       };
 
       // 5. Add Event Document creation to the batch
-      DocumentReference eventRef = firestore.collection('events').doc(eventId); // [cite: flutter/lib/pages/eventcreation.dart]
-      batch.set(eventRef, eventDocData); // [cite: flutter/lib/pages/eventcreation.dart]
+      DocumentReference eventRef = firestore.collection('events').doc(eventId); //
+      batch.set(eventRef, eventDocData); //
 
       // 6. Generate and Add Individual Ticket Documents to the batch
-      for (var level in ticketLevelsData) { // [cite: flutter/lib/pages/eventcreation.dart]
-        String levelName = level['levelName']; // [cite: flutter/lib/pages/eventcreation.dart]
-        int count = level['count']; // [cite: flutter/lib/pages/eventcreation.dart]
-        double price = level['price']; // [cite: flutter/lib/pages/eventcreation.dart]
-        String levelNameFormatted = levelName.replaceAll(' ', '_').replaceAll(RegExp(r'[^\w-]'), ''); // [cite: flutter/lib/pages/eventcreation.dart]
+      for (var level in ticketLevelsData) { //
+        String levelName = level['levelName']; //
+        int count = level['count']; //
+        double price = level['price']; //
+        String levelNameFormatted = levelName.replaceAll(' ', '_').replaceAll(RegExp(r'[^\w-]'), ''); //
 
-        for (int i = 1; i <= count; i++) { // [cite: flutter/lib/pages/eventcreation.dart]
-          String ticketId = '$eventId-${levelNameFormatted.toUpperCase()}-${i.toString().padLeft(4, '0')}'; // Pad for sorting, maybe uppercase level // [cite: flutter/lib/pages/eventcreation.dart]
-          Ticket newTicket = Ticket( // Use updated Ticket model // [cite: flutter/lib/pages/eventcreation.dart]
+        for (int i = 1; i <= count; i++) { //
+          String ticketId = '$eventId-${levelNameFormatted.toUpperCase()}-${i.toString().padLeft(4, '0')}'; //
+          Ticket newTicket = Ticket( // Use updated Ticket model //
             ticketId: ticketId,
             eventId: eventId,
             levelName: levelName,
             price: price,
-            status: 'available', // Initial status
-            // userId and purchaseTimestamp are null by default
+            status: 'available',
+            userId: null,
+            purchaseTimestamp: null,
           );
-          DocumentReference ticketRef = firestore.collection('tickets').doc(ticketId); // [cite: flutter/lib/pages/eventcreation.dart]
-          batch.set(ticketRef, newTicket.toMap()); // Use toMap from model // [cite: flutter/lib/pages/eventcreation.dart]
+          DocumentReference ticketRef = firestore.collection('tickets').doc(ticketId); //
+          batch.set(ticketRef, newTicket.toMap()); // Use toMap from model //
         }
       }
 
       // 7. Commit the Batch
-      await batch.commit(); // [cite: flutter/lib/pages/eventcreation.dart]
+      await batch.commit(); //
 
-      _showSnackBar('Event and Tickets successfully created!', isError: false); // [cite: flutter/lib/pages/eventcreation.dart]
+      _showSnackBar('Event and Tickets successfully created!', isError: false); //
 
       // 8. Clear the form and reset state
-      _formKey.currentState?.reset(); // [cite: flutter/lib/pages/eventcreation.dart]
-      setState(() { // [cite: flutter/lib/pages/eventcreation.dart]
-        _eventIdController.clear(); // Clear standard controllers too
-        _nameController.clear();
-        _locController.clear();
-        _dateController.clear();
-        _slotnumController.clear();
-        _selectedDate = null;
+      _formKey.currentState?.reset(); //
+      // Clear standard controllers
+      _eventIdController.clear();
+      _nameController.clear();
+      _locController.clear();
+      _dateController.clear(); // Clear date display
+      _slotnumController.clear();
+      // Clear dynamic fields and reset state
+      setState(() { //
+        _selectedDate = null;   // Clear date state
         // Dispose and clear artist controllers
-        _artistIdControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-        _artistNameControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-        _artistSlotControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-        _numofartistController.clear(); // [cite: flutter/lib/pages/eventcreation.dart]
-        _artistIdControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-        _artistNameControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-        _artistSlotControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-        _currentNumArtists = 0; // [cite: flutter/lib/pages/eventcreation.dart]
+        _artistIdControllers.forEach((c) => c.dispose()); //
+        _artistNameControllers.forEach((c) => c.dispose()); //
+        _artistSlotControllers.forEach((c) => c.dispose()); //
+        _numofartistController.clear(); //
+        _artistIdControllers = []; //
+        _artistNameControllers = []; //
+        _artistSlotControllers = []; //
+        _currentNumArtists = 0; //
         // Dispose and clear catering controllers
-        _cateringController.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-        _numofcateringController.clear(); // [cite: flutter/lib/pages/eventcreation.dart]
-        _cateringController = []; // [cite: flutter/lib/pages/eventcreation.dart]
-        _currentNumCatering = 0; // [cite: flutter/lib/pages/eventcreation.dart]
+        _cateringController.forEach((c) => c.dispose()); //
+        _numofcateringController.clear(); //
+        _cateringController = []; //
+        _currentNumCatering = 0; //
         // Dispose and clear ticket level controllers
-        _ticketLevelNameControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-        _ticketLevelCountControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-        _ticketLevelPriceControllers.forEach((c) => c.dispose()); // [cite: flutter/lib/pages/eventcreation.dart]
-        _ticketLevelNameControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-        _ticketLevelCountControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
-        _ticketLevelPriceControllers = []; // [cite: flutter/lib/pages/eventcreation.dart]
+        _ticketLevelNameControllers.forEach((c) => c.dispose()); //
+        _ticketLevelCountControllers.forEach((c) => c.dispose()); //
+        _ticketLevelPriceControllers.forEach((c) => c.dispose()); //
+        _ticketLevelNameControllers = []; //
+        _ticketLevelCountControllers = []; //
+        _ticketLevelPriceControllers = []; //
         // Add back one empty ticket level row
-        _addTicketLevel(); // [cite: flutter/lib/pages/eventcreation.dart]
+        _addTicketLevel(); //
       });
 
-    } catch (error) { // [cite: flutter/lib/pages/eventcreation.dart]
-      print("Error during submission: $error"); // [cite: flutter/lib/pages/eventcreation.dart]
-      _showSnackBar('Failed to create event/tickets: ${error.toString()}'); // [cite: flutter/lib/pages/eventcreation.dart]
-    } finally { // [cite: flutter/lib/pages/eventcreation.dart]
+    } catch (error) { //
+      print("Error during submission: $error"); //
+      _showSnackBar('Failed to create event/tickets: ${error.toString()}'); //
+    } finally { //
       // 9. Reset loading state
-      if (mounted) { setState(() { _isLoading = false; }); } // [cite: flutter/lib/pages/eventcreation.dart]
+      if (mounted) { setState(() { _isLoading = false; }); } //
     }
   }
 
   // --- UI Helper Methods ---
-  void _showSnackBar(String message, {bool isError = true}) { // [cite: flutter/lib/pages/eventcreation.dart]
-    if (!mounted) return; // [cite: flutter/lib/pages/eventcreation.dart]
-    ScaffoldMessenger.of(context).showSnackBar( // [cite: flutter/lib/pages/eventcreation.dart]
-      SnackBar( // [cite: flutter/lib/pages/eventcreation.dart]
-        content: Text(message), // [cite: flutter/lib/pages/eventcreation.dart]
-        backgroundColor: isError ? Colors.redAccent : Colors.green, // [cite: flutter/lib/pages/eventcreation.dart]
+  void _showSnackBar(String message, {bool isError = true}) { //
+    if (!mounted) return; //
+    ScaffoldMessenger.of(context).showSnackBar( //
+      SnackBar( //
+        content: Text(message), //
+        backgroundColor: isError ? Colors.redAccent : Colors.green, //
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) { // [cite: flutter/lib/pages/eventcreation.dart]
-    return Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-      padding: _AppPaddings.sectionSpacing, // [cite: flutter/lib/pages/eventcreation.dart]
-      child: Text(title, style: _AppTextStyles.sectionHeader), // [cite: flutter/lib/pages/eventcreation.dart]
+  Widget _buildSectionHeader(String title) { //
+    return Padding( //
+      padding: _AppPaddings.sectionSpacing, //
+      child: Text(title, style: _AppTextStyles.sectionHeader), //
     );
   }
 
-  // Modified TextFormField builder to accept readOnly and onTap
-  Widget _buildTextFormField({ // [cite: flutter/lib/pages/eventcreation.dart]
+  // Updated TextFormField builder to accept readOnly, onTap, suffixIcon, hintText
+  Widget _buildTextFormField({ //
     required TextEditingController controller,
     required String label,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
     int? maxLines = 1,
     List<TextInputFormatter>? inputFormatters,
-    bool readOnly = false, // Added parameter
-    VoidCallback? onTap,    // Added parameter
-    Widget? suffixIcon,    // Added parameter
-    String? hintText,     // Added hintText
+    bool readOnly = false,
+    VoidCallback? onTap,
+    Widget? suffixIcon,
+    String? hintText,
   }) {
-    return Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-      padding: _AppPaddings.formField, // [cite: flutter/lib/pages/eventcreation.dart]
-      child: TextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-        controller: controller, // [cite: flutter/lib/pages/eventcreation.dart]
+    return Padding( //
+      padding: _AppPaddings.formField, //
+      child: TextFormField( //
+        controller: controller, //
         readOnly: readOnly,
         onTap: onTap,
-        decoration: InputDecoration( // [cite: flutter/lib/pages/eventcreation.dart]
-          labelText: label, // [cite: flutter/lib/pages/eventcreation.dart]
-          hintText: hintText, // Use hintText
+        decoration: InputDecoration( //
+          labelText: label, //
+          hintText: hintText,
           suffixIcon: suffixIcon,
-          border: OutlineInputBorder( // [cite: flutter/lib/pages/eventcreation.dart]
-            borderRadius: BorderRadius.circular(8.0), // [cite: flutter/lib/pages/eventcreation.dart]
+          border: OutlineInputBorder( //
+            borderRadius: BorderRadius.circular(8.0), //
           ),
-          filled: true, // [cite: flutter/lib/pages/eventcreation.dart]
-          fillColor: Colors.grey[50], // [cite: flutter/lib/pages/eventcreation.dart]
+          filled: true, //
+          fillColor: Colors.grey[50], //
         ),
-        keyboardType: keyboardType, // [cite: flutter/lib/pages/eventcreation.dart]
-        validator: validator ?? (value) { // Default non-empty validator // [cite: flutter/lib/pages/eventcreation.dart]
-          if (value == null || value.trim().isEmpty) { // [cite: flutter/lib/pages/eventcreation.dart]
-            // Use the label in the default error message
-            return 'Please enter $label'; // [cite: flutter/lib/pages/eventcreation.dart]
-          }
-          return null; // [cite: flutter/lib/pages/eventcreation.dart]
-        },
-        maxLines: maxLines, // [cite: flutter/lib/pages/eventcreation.dart]
-        inputFormatters: inputFormatters, // [cite: flutter/lib/pages/eventcreation.dart]
-        autovalidateMode: AutovalidateMode.onUserInteraction, // [cite: flutter/lib/pages/eventcreation.dart]
+        keyboardType: keyboardType, //
+        validator: validator, // Use the provided validator directly
+        maxLines: maxLines, //
+        inputFormatters: inputFormatters, //
+        autovalidateMode: AutovalidateMode.onUserInteraction, //
       ),
     );
   }
 
-  String? _validatePositiveInt(String? value, String fieldName) { // [cite: flutter/lib/pages/eventcreation.dart]
-    if (value == null || value.trim().isEmpty) { // [cite: flutter/lib/pages/eventcreation.dart]
-      return 'Please enter $fieldName'; // [cite: flutter/lib/pages/eventcreation.dart]
+  String? _validatePositiveInt(String? value, String fieldName) { //
+    if (value == null || value.trim().isEmpty) { //
+      return 'Please enter $fieldName'; //
     }
-    final number = int.tryParse(value.trim()); // [cite: flutter/lib/pages/eventcreation.dart]
-    if (number == null) { // [cite: flutter/lib/pages/eventcreation.dart]
-      return 'Please enter a valid integer'; // [cite: flutter/lib/pages/eventcreation.dart]
+    final number = int.tryParse(value.trim()); //
+    if (number == null) { //
+      return 'Please enter a valid integer'; //
     }
-    if (number <= 0) { // [cite: flutter/lib/pages/eventcreation.dart]
-      return 'Please enter a positive integer'; // [cite: flutter/lib/pages/eventcreation.dart]
+    if (number <= 0) { //
+      return 'Please enter a positive integer'; //
     }
-    return null; // [cite: flutter/lib/pages/eventcreation.dart]
+    return null; //
   }
 
-  String? _validateNonNegativeNumber(String? value, String fieldName) { // [cite: flutter/lib/pages/eventcreation.dart]
-    if (value == null || value.trim().isEmpty) { // [cite: flutter/lib/pages/eventcreation.dart]
-      return 'Please enter $fieldName'; // [cite: flutter/lib/pages/eventcreation.dart]
+  String? _validateNonNegativeNumber(String? value, String fieldName) { //
+    if (value == null || value.trim().isEmpty) { //
+      return 'Please enter $fieldName'; //
     }
-    final number = double.tryParse(value.trim()); // [cite: flutter/lib/pages/eventcreation.dart]
-    if (number == null) { // [cite: flutter/lib/pages/eventcreation.dart]
-      return 'Please enter a valid number'; // [cite: flutter/lib/pages/eventcreation.dart]
+    final number = double.tryParse(value.trim()); //
+    if (number == null) { //
+      return 'Please enter a valid number'; //
     }
-    if (number < 0) { // [cite: flutter/lib/pages/eventcreation.dart]
-      return 'Please enter a non-negative number'; // [cite: flutter/lib/pages/eventcreation.dart]
+    if (number < 0) { //
+      return 'Please enter a non-negative number'; //
     }
-    return null; // [cite: flutter/lib/pages/eventcreation.dart]
+    return null; //
   }
 
 
   // --- Build Method ---
   @override
-  Widget build(BuildContext context) { // [cite: flutter/lib/pages/eventcreation.dart]
-    return Scaffold( // [cite: flutter/lib/pages/eventcreation.dart]
-      backgroundColor: _AppColors.primaryBackground, // [cite: flutter/lib/pages/eventcreation.dart]
-      appBar: AppBar( // [cite: flutter/lib/pages/eventcreation.dart]
-        backgroundColor: _AppColors.appBarBackground, // [cite: flutter/lib/pages/eventcreation.dart]
-        elevation: 1, // [cite: flutter/lib/pages/eventcreation.dart]
-        leading: IconButton( // [cite: flutter/lib/pages/eventcreation.dart]
-          icon: Icon(Icons.arrow_back, color: _AppColors.appBarForeground), // [cite: flutter/lib/pages/eventcreation.dart]
-          onPressed: () => Navigator.pop(context), // [cite: flutter/lib/pages/eventcreation.dart]
+  Widget build(BuildContext context) { //
+    return Scaffold( //
+      backgroundColor: _AppColors.primaryBackground, //
+      appBar: AppBar( //
+        backgroundColor: _AppColors.appBarBackground, //
+        elevation: 1, //
+        leading: IconButton( //
+          icon: Icon(Icons.arrow_back, color: _AppColors.appBarForeground), //
+          onPressed: () => Navigator.pop(context), //
         ),
-        title: Text( // [cite: flutter/lib/pages/eventcreation.dart]
+        title: Text( //
           "Create Event",
-          style: TextStyle(color: _AppColors.appBarForeground), // [cite: flutter/lib/pages/eventcreation.dart]
+          style: TextStyle(color: _AppColors.appBarForeground), //
         ),
-        centerTitle: true, // [cite: flutter/lib/pages/eventcreation.dart]
+        centerTitle: true, //
       ),
-      body: Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-        padding: _AppPaddings.screen, // [cite: flutter/lib/pages/eventcreation.dart]
-        child: Form( // [cite: flutter/lib/pages/eventcreation.dart]
-          key: _formKey, // [cite: flutter/lib/pages/eventcreation.dart]
-          child: ListView( // Use ListView for scrolling // [cite: flutter/lib/pages/eventcreation.dart]
+      body: Padding( //
+        padding: _AppPaddings.screen, //
+        child: Form( //
+          key: _formKey, //
+          child: ListView( // Use ListView for scrolling //
             children: [
-              _buildEventDetailsSection(), // Includes date field now // [cite: flutter/lib/pages/eventcreation.dart]
-              const Divider(height: 30, thickness: 1), // [cite: flutter/lib/pages/eventcreation.dart]
-              _buildArtistSection(), // [cite: flutter/lib/pages/eventcreation.dart]
-              const Divider(height: 30, thickness: 1), // [cite: flutter/lib/pages/eventcreation.dart]
-              _buildCateringSection(), // [cite: flutter/lib/pages/eventcreation.dart]
-              const Divider(height: 30, thickness: 1), // [cite: flutter/lib/pages/eventcreation.dart]
-              _buildTicketLevelsSection(), // Section for tickets // [cite: flutter/lib/pages/eventcreation.dart]
-              const SizedBox(height: 30), // [cite: flutter/lib/pages/eventcreation.dart]
-              _buildSubmitButton(), // [cite: flutter/lib/pages/eventcreation.dart]
-              const SizedBox(height: 20), // Space at the bottom // [cite: flutter/lib/pages/eventcreation.dart]
+              _buildEventDetailsSection(), // Includes date field now //
+              const Divider(height: 30, thickness: 1), //
+              _buildArtistSection(), //
+              const Divider(height: 30, thickness: 1), //
+              _buildCateringSection(), //
+              const Divider(height: 30, thickness: 1), //
+              _buildTicketLevelsSection(), // Section for tickets //
+              const SizedBox(height: 30), //
+              _buildSubmitButton(), //
+              const SizedBox(height: 20), // Space at the bottom //
             ],
           ),
         ),
@@ -468,38 +467,40 @@ class _EventCreationPageState extends State<EventCreationPage> { // [cite: flutt
 
   // --- Section Builder Methods ---
 
-  Widget _buildEventDetailsSection() { // [cite: flutter/lib/pages/eventcreation.dart]
+  Widget _buildEventDetailsSection() { //
     // Builds the UI section for basic event details including the date picker
-    return Column( // [cite: flutter/lib/pages/eventcreation.dart]
-      crossAxisAlignment: CrossAxisAlignment.start, // [cite: flutter/lib/pages/eventcreation.dart]
-      children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-        _buildSectionHeader("Event Details"), // [cite: flutter/lib/pages/eventcreation.dart]
-        _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-          controller: _eventIdController, // [cite: flutter/lib/pages/eventcreation.dart]
-          label: "Event ID (Unique)", // [cite: flutter/lib/pages/eventcreation.dart]
-          validator: (value) { // [cite: flutter/lib/pages/eventcreation.dart]
-            if (value == null || value.trim().isEmpty) { return 'Please enter a unique Event ID'; } // [cite: flutter/lib/pages/eventcreation.dart]
-            return null; // [cite: flutter/lib/pages/eventcreation.dart]
+    return Column( //
+      crossAxisAlignment: CrossAxisAlignment.start, //
+      children: [ //
+        _buildSectionHeader("Event Details"), //
+        _buildTextFormField( //
+          controller: _eventIdController, //
+          label: "Event ID (Unique)", //
+          validator: (value) { // Validator ensures field is not empty //
+            if (value == null || value.trim().isEmpty) { return 'Please enter a unique Event ID'; } //
+            return null; //
           },
         ),
-        _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-          controller: _nameController, // [cite: flutter/lib/pages/eventcreation.dart]
-          label: "Event Name", // [cite: flutter/lib/pages/eventcreation.dart]
+        _buildTextFormField( //
+          controller: _nameController, //
+          label: "Event Name", //
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Please enter Event Name' : null, // Basic required validator
         ),
-        _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-          controller: _locController, // [cite: flutter/lib/pages/eventcreation.dart]
-          label: "Event Location", // [cite: flutter/lib/pages/eventcreation.dart]
+        _buildTextFormField( //
+          controller: _locController, //
+          label: "Event Location", //
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Please enter Event Location' : null, // Basic required validator
         ),
         // --- Date Picker TextFormField ---
         _buildTextFormField(
           controller: _dateController, // Displays formatted date
-          readOnly: true, // Prevents manual text input
+          readOnly: true, // Make read-only
           label: "Event Date",
-          hintText: _selectedDate == null ? "Select Date" : null, // Show hint only if empty
-          suffixIcon: const Icon(Icons.calendar_today_outlined), // Calendar Icon
-          onTap: () => _selectDate(context), // Open picker on tap
+          hintText: "Select Date", // Added hint text
+          suffixIcon: const Icon(Icons.calendar_today_outlined), // Use suffixIcon property
+          onTap: () => _selectDate(context), // Call date picker on tap
           validator: (value) {
-            // Validate based on the _selectedDate state variable
+            // Validate based on the _selectedDate state variable, not the controller's text
             if (_selectedDate == null) {
               return 'Please select an event date';
             }
@@ -507,217 +508,222 @@ class _EventCreationPageState extends State<EventCreationPage> { // [cite: flutt
           },
         ),
         // -----------------------------
-        _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-          controller: _slotnumController, // [cite: flutter/lib/pages/eventcreation.dart]
-          label: "Event Capacity", // Clarified label // [cite: flutter/lib/pages/eventcreation.dart]
-          keyboardType: TextInputType.number, // [cite: flutter/lib/pages/eventcreation.dart]
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly], // [cite: flutter/lib/pages/eventcreation.dart]
-          validator: (value) => _validatePositiveInt(value, 'Event Capacity'), // [cite: flutter/lib/pages/eventcreation.dart]
+        _buildTextFormField( //
+          controller: _slotnumController, //
+          label: "Event Capacity", //
+          keyboardType: TextInputType.number, //
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly], //
+          validator: (value) => _validatePositiveInt(value, 'Event Capacity'), //
         ),
       ],
     );
   }
 
-  Widget _buildArtistSection() { // [cite: flutter/lib/pages/eventcreation.dart]
+  Widget _buildArtistSection() { //
     // Builds the UI section for adding artists dynamically
-    return Column( // [cite: flutter/lib/pages/eventcreation.dart]
-      crossAxisAlignment: CrossAxisAlignment.start, // [cite: flutter/lib/pages/eventcreation.dart]
-      children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-        _buildSectionHeader("Artists (Optional)"), // [cite: flutter/lib/pages/eventcreation.dart]
-        Row( // [cite: flutter/lib/pages/eventcreation.dart]
-          crossAxisAlignment: CrossAxisAlignment.start, // [cite: flutter/lib/pages/eventcreation.dart]
-          children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-            Expanded( // [cite: flutter/lib/pages/eventcreation.dart]
-              child: _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                  controller: _numofartistController, // [cite: flutter/lib/pages/eventcreation.dart]
-                  label: "Number of Artists", // [cite: flutter/lib/pages/eventcreation.dart]
-                  keyboardType: TextInputType.number, // [cite: flutter/lib/pages/eventcreation.dart]
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly], // [cite: flutter/lib/pages/eventcreation.dart]
-                  validator: (value) { // Allow 0 // [cite: flutter/lib/pages/eventcreation.dart]
-                    if (value == null || value.trim().isEmpty) return null; // [cite: flutter/lib/pages/eventcreation.dart]
-                    final number = int.tryParse(value.trim()); // [cite: flutter/lib/pages/eventcreation.dart]
-                    if (number == null) return 'Enter a valid number'; // [cite: flutter/lib/pages/eventcreation.dart]
-                    if (number < 0) return 'Enter a non-negative number'; // [cite: flutter/lib/pages/eventcreation.dart]
-                    return null; // [cite: flutter/lib/pages/eventcreation.dart]
+    return Column( //
+      crossAxisAlignment: CrossAxisAlignment.start, //
+      children: [ //
+        _buildSectionHeader("Artists (Optional)"), //
+        Row( //
+          crossAxisAlignment: CrossAxisAlignment.start, //
+          children: [ //
+            Expanded( //
+              child: _buildTextFormField( //
+                  controller: _numofartistController, //
+                  label: "Number of Artists", //
+                  keyboardType: TextInputType.number, //
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly], //
+                  validator: (value) { // Allow 0 //
+                    if (value == null || value.trim().isEmpty) return null; //
+                    final number = int.tryParse(value.trim()); //
+                    if (number == null) return 'Enter a valid number'; //
+                    if (number < 0) return 'Enter a non-negative number'; //
+                    // Also validate against the number of controllers if fields are already generated? Optional.
+                    return null; //
                   }
               ),
             ),
-            Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-              padding: const EdgeInsets.only(left: 8.0, top: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-              child: ElevatedButton( // [cite: flutter/lib/pages/eventcreation.dart]
-                onPressed: _generateArtistFields, // [cite: flutter/lib/pages/eventcreation.dart]
-                child: const Text("Set"), // [cite: flutter/lib/pages/eventcreation.dart]
+            Padding( //
+              padding: const EdgeInsets.only(left: 8.0, top: 8.0), //
+              child: ElevatedButton( //
+                onPressed: _generateArtistFields, //
+                child: const Text("Set"), //
               ),
             ),
           ],
         ),
         // Dynamically generate artist fields
-        if (_currentNumArtists > 0) // [cite: flutter/lib/pages/eventcreation.dart]
-          ListView.builder( // [cite: flutter/lib/pages/eventcreation.dart]
-            shrinkWrap: true, // [cite: flutter/lib/pages/eventcreation.dart]
-            physics: const NeverScrollableScrollPhysics(), // [cite: flutter/lib/pages/eventcreation.dart]
-            itemCount: _currentNumArtists, // [cite: flutter/lib/pages/eventcreation.dart]
-            itemBuilder: (context, index) => Card( // [cite: flutter/lib/pages/eventcreation.dart]
-              margin: const EdgeInsets.symmetric(vertical: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-              elevation: 2.0, // [cite: flutter/lib/pages/eventcreation.dart]
-              child: Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-                padding: const EdgeInsets.all(12.0), // [cite: flutter/lib/pages/eventcreation.dart]
-                child: Column( // [cite: flutter/lib/pages/eventcreation.dart]
-                  crossAxisAlignment: CrossAxisAlignment.start, // [cite: flutter/lib/pages/eventcreation.dart]
-                  children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-                    Text("Artist ${index + 1}", style: Theme.of(context).textTheme.titleMedium), // [cite: flutter/lib/pages/eventcreation.dart]
-                    const SizedBox(height: 8), // [cite: flutter/lib/pages/eventcreation.dart]
-                    _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                      controller: _artistIdControllers[index], // [cite: flutter/lib/pages/eventcreation.dart]
-                      label: "Artist ID", // [cite: flutter/lib/pages/eventcreation.dart]
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter Artist ID' : null, // [cite: flutter/lib/pages/eventcreation.dart]
+        if (_currentNumArtists > 0) //
+          ListView.builder( // Use ListView.builder for better performance if list gets long //
+            shrinkWrap: true, //
+            physics: const NeverScrollableScrollPhysics(), //
+            itemCount: _currentNumArtists, //
+            itemBuilder: (context, index) => Card( //
+              margin: const EdgeInsets.symmetric(vertical: 8.0), //
+              elevation: 2.0, //
+              child: Padding( //
+                padding: const EdgeInsets.all(12.0), //
+                child: Column( //
+                  crossAxisAlignment: CrossAxisAlignment.start, //
+                  children: [ //
+                    Text("Artist ${index + 1}", style: Theme.of(context).textTheme.titleMedium), //
+                    const SizedBox(height: 8), //
+                    _buildTextFormField( //
+                      controller: _artistIdControllers[index], //
+                      label: "Artist ID", //
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter Artist ID' : null, // Required if num artists > 0 //
                     ),
-                    _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                      controller: _artistNameControllers[index], // [cite: flutter/lib/pages/eventcreation.dart]
-                      label: "Artist Name", // [cite: flutter/lib/pages/eventcreation.dart]
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter Artist Name' : null, // [cite: flutter/lib/pages/eventcreation.dart]
+                    _buildTextFormField( //
+                      controller: _artistNameControllers[index], //
+                      label: "Artist Name", //
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter Artist Name' : null, //
                     ),
-                    _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                      controller: _artistSlotControllers[index], // [cite: flutter/lib/pages/eventcreation.dart]
-                      label: "Artist Slot", // [cite: flutter/lib/pages/eventcreation.dart]
-                      keyboardType: TextInputType.number, // [cite: flutter/lib/pages/eventcreation.dart]
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly], // [cite: flutter/lib/pages/eventcreation.dart]
-                      validator: (value) => _validatePositiveInt(value, 'Artist Slot'), // [cite: flutter/lib/pages/eventcreation.dart]
+                    _buildTextFormField( //
+                      controller: _artistSlotControllers[index], //
+                      label: "Artist Slot", //
+                      keyboardType: TextInputType.number, //
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly], //
+                      validator: (value) => _validatePositiveInt(value, 'Artist Slot'), //
                     ),
                   ],
                 ),
               ),
             ),
           )
-        else if (_numofartistController.text.isNotEmpty && int.tryParse(_numofartistController.text) == 0) // [cite: flutter/lib/pages/eventcreation.dart]
-          const Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-              padding: EdgeInsets.only(top: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-              child: Text('No artist fields to add.', style: TextStyle(color: Colors.grey)) // [cite: flutter/lib/pages/eventcreation.dart]
+        else if (_numofartistController.text.isNotEmpty && (int.tryParse(_numofartistController.text) ?? -1) == 0) // Handle 0 case //
+          const Padding( //
+              padding: EdgeInsets.only(top: 8.0), //
+              child: Text('No artist fields generated.', style: TextStyle(color: Colors.grey)) //
           )
-        else if (_numofartistController.text.isNotEmpty) // [cite: flutter/lib/pages/eventcreation.dart]
-            Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-                padding: const EdgeInsets.only(top: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-                child: Text('Press "Set" to add artist fields.', style: TextStyle(color: Colors.grey[600])) // [cite: flutter/lib/pages/eventcreation.dart]
+        else if (_numofartistController.text.isNotEmpty) //
+            Padding( //
+                padding: const EdgeInsets.only(top: 8.0), //
+                child: Text('Press "Set" to generate artist fields.', style: TextStyle(color: Colors.grey[600])) //
             ),
       ],
     );
   }
 
-  Widget _buildCateringSection() { // [cite: flutter/lib/pages/eventcreation.dart]
+  Widget _buildCateringSection() { //
     // Builds the UI section for adding catering companies dynamically
-    return Column( // [cite: flutter/lib/pages/eventcreation.dart]
-      crossAxisAlignment: CrossAxisAlignment.start, // [cite: flutter/lib/pages/eventcreation.dart]
-      children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-        _buildSectionHeader("Catering (Optional)"), // [cite: flutter/lib/pages/eventcreation.dart]
-        Row( // [cite: flutter/lib/pages/eventcreation.dart]
-          crossAxisAlignment: CrossAxisAlignment.start, // [cite: flutter/lib/pages/eventcreation.dart]
-          children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-            Expanded( // [cite: flutter/lib/pages/eventcreation.dart]
-              child:_buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                  controller: _numofcateringController, // [cite: flutter/lib/pages/eventcreation.dart]
-                  label: "Number of Catering Companies", // [cite: flutter/lib/pages/eventcreation.dart]
-                  keyboardType: TextInputType.number, // [cite: flutter/lib/pages/eventcreation.dart]
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly], // [cite: flutter/lib/pages/eventcreation.dart]
-                  validator: (value) { // Allow 0 // [cite: flutter/lib/pages/eventcreation.dart]
-                    if (value == null || value.trim().isEmpty) return null; // [cite: flutter/lib/pages/eventcreation.dart]
-                    final number = int.tryParse(value.trim()); // [cite: flutter/lib/pages/eventcreation.dart]
-                    if (number == null) return 'Enter a valid number'; // [cite: flutter/lib/pages/eventcreation.dart]
-                    if (number < 0) return 'Enter a non-negative number'; // [cite: flutter/lib/pages/eventcreation.dart]
-                    return null; // [cite: flutter/lib/pages/eventcreation.dart]
+    return Column( //
+      crossAxisAlignment: CrossAxisAlignment.start, //
+      children: [ //
+        _buildSectionHeader("Catering (Optional)"), //
+        Row( //
+          crossAxisAlignment: CrossAxisAlignment.start, //
+          children: [ //
+            Expanded( //
+              child:_buildTextFormField( //
+                  controller: _numofcateringController, //
+                  label: "Number of Catering Companies", //
+                  keyboardType: TextInputType.number, //
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly], //
+                  validator: (value) { // Allow 0 //
+                    if (value == null || value.trim().isEmpty) return null; //
+                    final number = int.tryParse(value.trim()); //
+                    if (number == null) return 'Enter a valid number'; //
+                    if (number < 0) return 'Enter a non-negative number'; //
+                    return null; //
                   }
               ),
             ),
-            Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-              padding: const EdgeInsets.only(left: 8.0, top: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-              child: ElevatedButton( // [cite: flutter/lib/pages/eventcreation.dart]
-                onPressed: _generateCateringFields, // [cite: flutter/lib/pages/eventcreation.dart]
-                child: const Text("Set"), // [cite: flutter/lib/pages/eventcreation.dart]
+            Padding( //
+              padding: const EdgeInsets.only(left: 8.0, top: 8.0), //
+              child: ElevatedButton( //
+                onPressed: _generateCateringFields, //
+                child: const Text("Set"), //
               ),
             ),
           ],
         ),
         // Dynamically generate catering fields
-        if (_currentNumCatering > 0) // [cite: flutter/lib/pages/eventcreation.dart]
-          ListView.builder( // [cite: flutter/lib/pages/eventcreation.dart]
-            shrinkWrap: true, // [cite: flutter/lib/pages/eventcreation.dart]
-            physics: const NeverScrollableScrollPhysics(), // [cite: flutter/lib/pages/eventcreation.dart]
-            itemCount: _currentNumCatering, // [cite: flutter/lib/pages/eventcreation.dart]
-            itemBuilder: (context, index) => _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-              controller: _cateringController[index], // [cite: flutter/lib/pages/eventcreation.dart]
-              label: "Catering Company ${index + 1} Name", // [cite: flutter/lib/pages/eventcreation.dart]
-              validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter Company Name' : null, // [cite: flutter/lib/pages/eventcreation.dart]
+        if (_currentNumCatering > 0) //
+          ListView.builder( //
+            shrinkWrap: true, //
+            physics: const NeverScrollableScrollPhysics(), //
+            itemCount: _currentNumCatering, //
+            itemBuilder: (context, index) => _buildTextFormField( //
+              controller: _cateringController[index], //
+              label: "Catering Company ${index + 1} Name", //
+              validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter Company Name' : null, // Required if num > 0 //
             ),
           )
-        else if (_numofcateringController.text.isNotEmpty && int.tryParse(_numofcateringController.text) == 0) // [cite: flutter/lib/pages/eventcreation.dart]
-          const Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-              padding: EdgeInsets.only(top: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-              child: Text('No catering fields to add.', style: TextStyle(color: Colors.grey)) // [cite: flutter/lib/pages/eventcreation.dart]
+        else if (_numofcateringController.text.isNotEmpty && (int.tryParse(_numofcateringController.text) ?? -1) == 0) //
+          const Padding( //
+              padding: EdgeInsets.only(top: 8.0), //
+              child: Text('No catering fields generated.', style: TextStyle(color: Colors.grey)) //
           )
-        else if (_numofcateringController.text.isNotEmpty) // [cite: flutter/lib/pages/eventcreation.dart]
-            Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-                padding: const EdgeInsets.only(top: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-                child: Text('Press "Set" to add catering fields.', style: TextStyle(color: Colors.grey[600])) // [cite: flutter/lib/pages/eventcreation.dart]
+        else if (_numofcateringController.text.isNotEmpty) //
+            Padding( //
+                padding: const EdgeInsets.only(top: 8.0), //
+                child: Text('Press "Set" to add catering fields.', style: TextStyle(color: Colors.grey[600])) //
             ),
       ],
     );
   }
 
-  Widget _buildTicketLevelsSection() { // [cite: flutter/lib/pages/eventcreation.dart]
+  Widget _buildTicketLevelsSection() { //
     // Builds the UI section for adding ticket levels dynamically
-    return Column( // [cite: flutter/lib/pages/eventcreation.dart]
-      crossAxisAlignment: CrossAxisAlignment.start, // [cite: flutter/lib/pages/eventcreation.dart]
-      children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-        _buildSectionHeader("Ticket Levels"), // [cite: flutter/lib/pages/eventcreation.dart]
-        if (_ticketLevelNameControllers.isEmpty) // [cite: flutter/lib/pages/eventcreation.dart]
-          const Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-            padding: EdgeInsets.symmetric(vertical: 16.0), // [cite: flutter/lib/pages/eventcreation.dart]
-            child: Center(child: Text("Click 'Add Ticket Level' to start.")), // [cite: flutter/lib/pages/eventcreation.dart]
+    return Column( //
+      crossAxisAlignment: CrossAxisAlignment.start, //
+      children: [ //
+        _buildSectionHeader("Ticket Levels"), //
+        // Display existing ticket level rows
+        if (_ticketLevelNameControllers.isEmpty) //
+          const Padding( //
+            padding: EdgeInsets.symmetric(vertical: 16.0), //
+            child: Center(child: Text("Click 'Add Ticket Level' to start.")), //
           )
         else
-          ListView.builder( // [cite: flutter/lib/pages/eventcreation.dart]
-            shrinkWrap: true, // [cite: flutter/lib/pages/eventcreation.dart]
-            physics: const NeverScrollableScrollPhysics(), // [cite: flutter/lib/pages/eventcreation.dart]
-            itemCount: _ticketLevelNameControllers.length, // [cite: flutter/lib/pages/eventcreation.dart]
-            itemBuilder: (context, index) { // [cite: flutter/lib/pages/eventcreation.dart]
-              return Card( // [cite: flutter/lib/pages/eventcreation.dart]
-                margin: const EdgeInsets.symmetric(vertical: 8.0), // [cite: flutter/lib/pages/eventcreation.dart]
-                elevation: 2.0, // [cite: flutter/lib/pages/eventcreation.dart]
-                child: Padding( // [cite: flutter/lib/pages/eventcreation.dart]
-                  padding: const EdgeInsets.all(12.0), // [cite: flutter/lib/pages/eventcreation.dart]
-                  child: Column( // [cite: flutter/lib/pages/eventcreation.dart]
-                    children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-                      Row( // [cite: flutter/lib/pages/eventcreation.dart]
-                        children: [ // [cite: flutter/lib/pages/eventcreation.dart]
-                          Expanded(child: Text("Level ${index + 1}", style: Theme.of(context).textTheme.titleMedium)), // [cite: flutter/lib/pages/eventcreation.dart]
-                          if (_ticketLevelNameControllers.length > 1) // [cite: flutter/lib/pages/eventcreation.dart]
-                            IconButton( // [cite: flutter/lib/pages/eventcreation.dart]
-                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red), // [cite: flutter/lib/pages/eventcreation.dart]
-                              tooltip: 'Remove Level ${index + 1}', // [cite: flutter/lib/pages/eventcreation.dart]
-                              onPressed: () => _removeTicketLevel(index), // [cite: flutter/lib/pages/eventcreation.dart]
+          ListView.builder( //
+            shrinkWrap: true, //
+            physics: const NeverScrollableScrollPhysics(), //
+            itemCount: _ticketLevelNameControllers.length, //
+            itemBuilder: (context, index) { //
+              // Card for each level
+              return Card( //
+                margin: const EdgeInsets.symmetric(vertical: 8.0), //
+                elevation: 2.0, //
+                child: Padding( //
+                  padding: const EdgeInsets.all(12.0), //
+                  child: Column( //
+                    children: [ //
+                      Row( // Header for the level card //
+                        children: [ //
+                          Expanded(child: Text("Level ${index + 1}", style: Theme.of(context).textTheme.titleMedium)), //
+                          // Remove button enabled only if more than one level exists
+                          if (_ticketLevelNameControllers.length > 1) //
+                            IconButton( //
+                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red), //
+                              tooltip: 'Remove Level ${index + 1}', //
+                              onPressed: () => _removeTicketLevel(index), //
                             )
-                          else // [cite: flutter/lib/pages/eventcreation.dart]
-                            const SizedBox(width: 48), // [cite: flutter/lib/pages/eventcreation.dart]
+                          else //
+                            const SizedBox(width: 48), // Placeholder for alignment //
                         ],
                       ),
-                      const SizedBox(height: 8), // [cite: flutter/lib/pages/eventcreation.dart]
-                      _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                        controller: _ticketLevelNameControllers[index], // [cite: flutter/lib/pages/eventcreation.dart]
-                        label: "Level Name (e.g., VIP, Standard)", // [cite: flutter/lib/pages/eventcreation.dart]
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter level name' : null, // [cite: flutter/lib/pages/eventcreation.dart]
+                      const SizedBox(height: 8), //
+                      // --- Fields for this Ticket Level ---
+                      _buildTextFormField( //
+                        controller: _ticketLevelNameControllers[index], //
+                        label: "Level Name (e.g., VIP, Standard)", //
+                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter level name' : null, //
                       ),
-                      _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                        controller: _ticketLevelCountControllers[index], // [cite: flutter/lib/pages/eventcreation.dart]
-                        label: "Number of Tickets", // [cite: flutter/lib/pages/eventcreation.dart]
-                        keyboardType: TextInputType.number, // [cite: flutter/lib/pages/eventcreation.dart]
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly], // [cite: flutter/lib/pages/eventcreation.dart]
-                        validator: (value) => _validatePositiveInt(value, 'Number of Tickets'), // [cite: flutter/lib/pages/eventcreation.dart]
+                      _buildTextFormField( //
+                        controller: _ticketLevelCountControllers[index], //
+                        label: "Number of Tickets", //
+                        keyboardType: TextInputType.number, //
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly], //
+                        validator: (value) => _validatePositiveInt(value, 'Number of Tickets'), //
                       ),
-                      _buildTextFormField( // [cite: flutter/lib/pages/eventcreation.dart]
-                        controller: _ticketLevelPriceControllers[index], // [cite: flutter/lib/pages/eventcreation.dart]
-                        label: "Price per Ticket (\$)", // [cite: flutter/lib/pages/eventcreation.dart]
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true), // [cite: flutter/lib/pages/eventcreation.dart]
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))], // [cite: flutter/lib/pages/eventcreation.dart]
-                        validator: (value) => _validateNonNegativeNumber(value, 'Price'), // [cite: flutter/lib/pages/eventcreation.dart]
+                      _buildTextFormField( //
+                        controller: _ticketLevelPriceControllers[index], //
+                        label: "Price per Ticket (\$)", //
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true), //
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))], //
+                        validator: (value) => _validateNonNegativeNumber(value, 'Price'), //
                       ),
                     ],
                   ),
@@ -725,50 +731,51 @@ class _EventCreationPageState extends State<EventCreationPage> { // [cite: flutt
               );
             },
           ),
-        const SizedBox(height: 16), // [cite: flutter/lib/pages/eventcreation.dart]
-        Center( // [cite: flutter/lib/pages/eventcreation.dart]
-          child: ElevatedButton.icon( // [cite: flutter/lib/pages/eventcreation.dart]
-            icon: const Icon(Icons.add_circle_outline), // [cite: flutter/lib/pages/eventcreation.dart]
-            label: const Text("Add Another Ticket Level"), // [cite: flutter/lib/pages/eventcreation.dart]
-            style: ElevatedButton.styleFrom( // [cite: flutter/lib/pages/eventcreation.dart]
-              backgroundColor: Colors.grey[200], // [cite: flutter/lib/pages/eventcreation.dart]
-              foregroundColor: Colors.black87, // [cite: flutter/lib/pages/eventcreation.dart]
+        const SizedBox(height: 16), //
+        // Button to add a new ticket level row
+        Center( //
+          child: ElevatedButton.icon( //
+            icon: const Icon(Icons.add_circle_outline), //
+            label: const Text("Add Another Ticket Level"), //
+            style: ElevatedButton.styleFrom( //
+              backgroundColor: Colors.grey[200], //
+              foregroundColor: Colors.black87, //
             ),
-            onPressed: _addTicketLevel, // [cite: flutter/lib/pages/eventcreation.dart]
+            onPressed: _addTicketLevel, //
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSubmitButton() { // [cite: flutter/lib/pages/eventcreation.dart]
+  Widget _buildSubmitButton() { //
     // Builds the final submit button
-    return ElevatedButton( // [cite: flutter/lib/pages/eventcreation.dart]
-      onPressed: _isLoading ? null : _submitForm, // Disable when loading // [cite: flutter/lib/pages/eventcreation.dart]
-      style: ElevatedButton.styleFrom( // [cite: flutter/lib/pages/eventcreation.dart]
-        backgroundColor: _AppColors.buttonBackground, // Use defined color // [cite: flutter/lib/pages/eventcreation.dart]
-        padding: _AppPaddings.button, // Use defined padding
-        shape: RoundedRectangleBorder( // Use defined radius
-            borderRadius: BorderRadius.circular(12) // Assuming _AppRadius.buttonRadius was 12
+    return ElevatedButton( //
+      onPressed: _isLoading ? null : _submitForm, // Disable when loading //
+      style: ElevatedButton.styleFrom( //
+        backgroundColor: _AppColors.buttonBackground, // Use defined color //
+        padding: _AppPaddings.button, // Use constant padding //
+        shape: RoundedRectangleBorder( // Use constant radius //
+            borderRadius: BorderRadius.circular(12) // Assuming _AppRadius.buttonRadius was 12 //
         ),
-        elevation: 5, // [cite: flutter/lib/pages/eventcreation.dart]
-        side: const BorderSide( // [cite: flutter/lib/pages/eventcreation.dart]
-          color: _AppColors.buttonBorder, // [cite: flutter/lib/pages/eventcreation.dart]
-          width: 2, // [cite: flutter/lib/pages/eventcreation.dart]
+        elevation: 5, //
+        side: const BorderSide( //
+          color: _AppColors.buttonBorder, //
+          width: 2, //
         ),
       ),
-      child: _isLoading // [cite: flutter/lib/pages/eventcreation.dart]
-          ? const SizedBox( // Show loading indicator when _isLoading is true // [cite: flutter/lib/pages/eventcreation.dart]
-        width: 24, // [cite: flutter/lib/pages/eventcreation.dart]
-        height: 24, // [cite: flutter/lib/pages/eventcreation.dart]
-        child: CircularProgressIndicator( // [cite: flutter/lib/pages/eventcreation.dart]
-          color: Colors.white, // [cite: flutter/lib/pages/eventcreation.dart]
-          strokeWidth: 3, // [cite: flutter/lib/pages/eventcreation.dart]
+      child: _isLoading //
+          ? const SizedBox( // Show loading indicator //
+        width: 24, //
+        height: 24, //
+        child: CircularProgressIndicator( //
+          color: Colors.white, //
+          strokeWidth: 3, //
         ),
       )
-          : const Text( // Show button text otherwise // [cite: flutter/lib/pages/eventcreation.dart]
+          : const Text( // Show button text //
         'Create Event & Generate Tickets', // Updated text
-        style: _AppTextStyles.button, // [cite: flutter/lib/pages/eventcreation.dart]
+        style: _AppTextStyles.button, //
       ),
     );
   }

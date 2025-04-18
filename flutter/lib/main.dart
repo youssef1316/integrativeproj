@@ -7,8 +7,9 @@ import 'package:eventmangment/pages/login.dart';             // Correct: Contain
 import 'package:eventmangment/pages/sign_up.dart';          // Contains SignUpScreen
 import 'package:eventmangment/pages/user_home.dart';         // Contains UserHomePage
 import 'package:eventmangment/pages/admin_home.dart';        // Contains AdminHomePage
-import 'package:eventmangment/pages/eventcreation.dart';     // Contains EventCreationPage
-import 'package:eventmangment/pages/viewevents.dart';        // Contains ViewEventsPage
+import 'package:eventmangment/pages/eventcreation.dart'; // Should provide EventCreationPage
+import 'package:eventmangment/pages/viewevents.dart';    // Should provide ViewEventsPage   // Contains ViewEventsPage
+import 'package:eventmangment/pages/payment_screen.dart';
 
 // --- Module Imports (Keep if needed by pages) ---
 import 'package:eventmangment/modules/events.dart';
@@ -29,6 +30,7 @@ class AppRoutes {
   // Other Necessary Routes (Keep if still used from within User/Admin areas)
   static const String createEvent = '/createEvent';
   static const String viewEvents = '/viewEvents';
+  static const String payment = '/payment_screen';
 
 
   // --- Configure ALL necessary routes ---
@@ -40,6 +42,7 @@ class AppRoutes {
       adminHome: (context) => const AdminHomePage(),
       createEvent: (context) => EventCreationPage(),
       viewEvents: (context) => const ViewEventsPage(),
+      payment: (context) => const PaymentScreen(),
     };
   }
 }
@@ -48,7 +51,6 @@ void main() async {
   // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // --- IMPORTANT SECURITY WARNING (copied from your code) ---
   await Firebase.initializeApp(
     options: FirebaseOptions(
         apiKey: "AIzaSyD9yydqQa7fF6O1fr69iA-GLdx5-JjINKY", // Replace with secure loading method
@@ -59,7 +61,6 @@ void main() async {
         appId: "eventmangmentsystem-c8674" // Replace with secure loading method if different
     ),
   );
-  // --- END WARNING ---
 
   runApp(const MyApp());
 }
