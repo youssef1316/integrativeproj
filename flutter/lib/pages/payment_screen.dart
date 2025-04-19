@@ -2,8 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For TextInputFormatters
 import 'package:firebase_auth/firebase_auth.dart'; // To get current user ID
-import 'package:cloud_firestore/cloud_firestore.dart'; // To update tickets
-import 'package:eventmangment/main.dart'; // For AppRoutes (if navigating away)
+import 'package:cloud_firestore/cloud_firestore.dart'; // To update tickets and store payment
+import 'package:eventmangment/main.dart'; // For AppRoutes (Ensure this path is correct)
+// --- Make sure necessary imports are here ---
+// import 'package:intl/intl.dart'; (If needed elsewhere)
+
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -14,60 +17,60 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false; // For the payment button processing state
-  bool _isLoadingTotal = true; // For fetching prices initially
+  bool _isLoading = false;
+  bool _isLoadingTotal = true;
   double _totalAmount = 0.0;
 
-  // Controllers for payment fields
   final _cardNumberController = TextEditingController();
   final _expiryDateController = TextEditingController();
   final _cvvController = TextEditingController();
-  final _cardHolderNameController = TextEditingController(); // Added
+  final _cardHolderNameController = TextEditingController();
 
-  // Data passed from previous screen
   String _eventId = 'N/A';
   Map<String, int> _ticketsToBuy = {};
 
   @override
   void initState() {
     super.initState();
-    // Use addPostFrameCallback to ensure context is available for ModalRoute
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _extractArgumentsAndCalculateTotal();
     });
   }
 
   void _extractArgumentsAndCalculateTotal() {
-    // Retrieve arguments after the first frame
     final arguments = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (arguments != null) {
-      setState(() { // Store arguments in state variables
+      if (!mounted) return;
+      setState(() {
         _eventId = arguments['eventId'] ?? 'N/A';
         _ticketsToBuy = arguments['tickets'] as Map<String, int>? ?? {};
       });
-      _calculateTotalAmount(); // Start calculation
+      _calculateTotalAmount();
     } else {
-      // Handle error: Arguments are missing
       print("Error: Payment screen loaded without necessary arguments.");
-      setState(() { _isLoadingTotal = false; }); // Stop loading indicator
+      if (!mounted) return;
+      setState(() { _isLoadingTotal = false; });
       _showErrorSnackBar("Error loading payment details.");
-      // Optionally navigate back
-      // Navigator.pop(context);
     }
   }
 
 
   Future<void> _calculateTotalAmount() async {
+    if (!mounted) return;
     if (_eventId == 'N/A' || _ticketsToBuy.isEmpty) {
       setState(() => _isLoadingTotal = false);
       return;
     }
+
+    setState(() => _isLoadingTotal = true);
 
     try {
       DocumentSnapshot eventDoc = await FirebaseFirestore.instance
           .collection('events')
           .doc(_eventId)
           .get();
+
+      if (!mounted) return;
 
       if (!eventDoc.exists || eventDoc.data() == null) {
         throw Exception("Event not found");
@@ -83,7 +86,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _ticketsToBuy.forEach((levelName, quantity) {
         final levelData = ticketLevels.firstWhere(
               (level) => level['levelName'] == levelName,
-          orElse: () => {}, // Return empty map if level not found
+          orElse: () => {},
         );
         if (levelData.isNotEmpty) {
           final price = (levelData['price'] as num?)?.toDouble() ?? 0.0;
@@ -93,6 +96,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         }
       });
 
+      if (!mounted) return;
       setState(() {
         _totalAmount = calculatedTotal;
         _isLoadingTotal = false;
@@ -100,6 +104,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     } catch (e) {
       print("Error calculating total: $e");
+      if (!mounted) return;
       setState(() { _isLoadingTotal = false; });
       _showErrorSnackBar("Error calculating total amount.");
     }
@@ -124,90 +129,113 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  // --- !!! THIS IS A SIMULATION - DO NOT USE FOR REAL PAYMENTS !!! ---
+  // --- Payment Processing (Simulation) ---
   Future<void> _processPayment() async {
     if (!_formKey.currentState!.validate()) {
-      return; // Don't proceed if card info is invalid
+      return;
     }
-
+    if (!mounted) return;
     setState(() { _isLoading = true; });
 
+    // Simulate payment gateway interaction
     await Future.delayed(const Duration(seconds: 2));
     bool paymentSuccess = true; // Assume success for simulation
 
-    // ** 2. BACKEND TICKET ASSIGNMENT (SHOULD BE IN CLOUD FUNCTION) **
     bool backendUpdateSuccess = false;
     if (paymentSuccess) {
-      backendUpdateSuccess = await _assignTicketsInFirestore();
+      // Pass payment details needed for storage to the backend function
+      final String cardLast4 = _cardNumberController.text.length >= 4
+          ? _cardNumberController.text.substring(_cardNumberController.text.length - 4)
+          : '****';
+      final String cardHolderName = _cardHolderNameController.text;
+
+      backendUpdateSuccess = await _assignTicketsAndRecordPayment(
+        eventId: _eventId,
+        ticketsToBuy: _ticketsToBuy,
+        totalAmount: _totalAmount,
+        cardLast4: cardLast4,
+        cardHolderName: cardHolderName,
+      );
     }
 
-    if (mounted) { // Check context is still valid
+    if (mounted) { // Check context is still valid before updating UI
       setState(() { _isLoading = false; });
 
       if (paymentSuccess && backendUpdateSuccess) {
-        // Show Receipt Dialog on success
         _showReceiptDialog();
       } else if (!backendUpdateSuccess && paymentSuccess){
-        _showErrorSnackBar("Payment processed (simulated), but failed to assign tickets. Contact support.");
+        _showErrorSnackBar("Payment processed (simulated), but failed to update records. Contact support.");
       } else {
         _showErrorSnackBar("Payment failed (simulated). Please try again.");
       }
     }
   }
 
-  Future<bool> _assignTicketsInFirestore() async {
+  // --- Firestore Transaction: Assign Tickets, Record Payment, Update Event Totals, Update Event Payment Log ---
+  Future<bool> _assignTicketsAndRecordPayment({
+    required String eventId,
+    required Map<String, int> ticketsToBuy,
+    required double totalAmount,
+    required String cardLast4,
+    required String cardHolderName,
+  }) async {
     final String? userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
       print("Error: User not logged in for ticket assignment.");
       return false;
     }
     final firestore = FirebaseFirestore.instance;
+    final DocumentReference eventRef = firestore.collection('events').doc(eventId);
+    // *** Reference to the specific event's payment log document ***
+    final DocumentReference paymentLogRef = firestore.collection('event_payment_logs').doc(eventId);
 
-    // Use a Transaction to ensure atomicity
     try {
+      // Generate a reference for the individual payment record *before* the transaction
+      // We need its ID to store it in the event payment log array entry
+      final paymentRecordRef = firestore.collection('payments').doc();
+
       await firestore.runTransaction((transaction) async {
         List<Future<QuerySnapshot>> availabilityChecks = [];
         Map<String, List<DocumentSnapshot>> availableDocsPerLevel = {};
 
-        // 1. Check availability for ALL requested tickets first
-        _ticketsToBuy.forEach((levelName, quantity) {
+        // 1. Check availability
+        ticketsToBuy.forEach((levelName, quantity) {
           final query = firestore
               .collection('tickets')
-              .where('eventId', isEqualTo: _eventId)
+              .where('eventId', isEqualTo: eventId)
               .where('levelName', isEqualTo: levelName)
               .where('status', isEqualTo: 'available')
               .limit(quantity);
-          availabilityChecks.add(query.get()); // Add future to list
+          availabilityChecks.add(query.get());
         });
-
-        // Wait for all availability checks
         final List<QuerySnapshot> results = await Future.wait(availabilityChecks);
 
-        // Verify counts and collect docs
+        // Verify counts & collect docs
         bool sufficientTickets = true;
+        int totalQuantitySoldThisTx = 0;
         int checkIndex = 0;
-        for (var entry in _ticketsToBuy.entries) {
+        for (var entry in ticketsToBuy.entries) {
           final levelName = entry.key;
           final quantity = entry.value;
           final snapshot = results[checkIndex];
-
           if (snapshot.docs.length < quantity) {
             sufficientTickets = false;
             print("Error: Not enough tickets available for $levelName. Needed: $quantity, Found: ${snapshot.docs.length}");
-            // Optionally store specific error message
-            break; // Stop checking if one level fails
+            break;
           }
-          availableDocsPerLevel[levelName] = snapshot.docs; // Store docs to update
+          availableDocsPerLevel[levelName] = snapshot.docs;
+          totalQuantitySoldThisTx += quantity;
           checkIndex++;
         }
 
         if (!sufficientTickets) {
-          // Throwing an error inside the transaction automatically aborts it
           throw FirebaseException(plugin: 'App', code: 'unavailable-tickets', message: 'Not enough tickets available for one or more levels.');
         }
 
-        // 2. If all checks passed, update the tickets
-        final now = FieldValue.serverTimestamp();
+        // Consistent Timestamp
+        final Timestamp now = Timestamp.now();
+
+        // 2. Update tickets
         availableDocsPerLevel.forEach((levelName, docsToUpdate) {
           for (var doc in docsToUpdate) {
             transaction.update(doc.reference, {
@@ -217,22 +245,66 @@ class _PaymentScreenState extends State<PaymentScreen> {
             });
           }
         });
-      });
-      // Transaction successful
-      print("Firestore transaction successful - Tickets assigned.");
+
+        // 3. Create individual payment record (optional but good for detail)
+        final paymentData = {
+          'paymentId': paymentRecordRef.id, // Use pre-generated ref ID
+          'userId': userId,
+          'eventId': eventId,
+          'amount': totalAmount,
+          'paymentTimestamp': now,
+          'cardLast4': cardLast4,
+          'cardHolderName': cardHolderName,
+          'ticketsPurchased': ticketsToBuy,
+          'status': 'success',
+        };
+        transaction.set(paymentRecordRef, paymentData);
+
+        // 4. Update Event Aggregate Totals
+        transaction.update(eventRef, {
+          'totalRevenue': FieldValue.increment(totalAmount),
+          'totalTicketsSold': FieldValue.increment(totalQuantitySoldThisTx),
+          'lastTransactionTimestamp': now,
+        });
+
+        // **** 5. Update Event Payment Log (Add to Array) ****
+        final paymentLogEntry = {
+          'userId': userId,
+          'amount': totalAmount,
+          'paymentTimestamp': now,
+          'paymentRecordId': paymentRecordRef.id, // Link to the detailed record
+          'tickets': ticketsToBuy, // Optionally store tickets summary here too
+        };
+        // Use arrayUnion to add the new map to the 'payments' array
+        transaction.update(paymentLogRef, {
+          'payments': FieldValue.arrayUnion([paymentLogEntry])
+        });
+        // ****************************************************
+
+      }); // End of transaction block
+
+      print("Firestore transaction successful - Tickets assigned, payment recorded, event updated, payment log updated.");
       return true;
+
     } catch (e) {
       print("Firestore transaction failed: $e");
-      // Show specific error based on exception if needed
+      if (mounted) {
+        // Check if the error is because the payment log document doesn't exist (should have been created with the event)
+        if (e is FirebaseException && e.code == 'not-found') {
+          _showErrorSnackBar("Failed to complete purchase. Payment log for event not found. Error: ${e.toString()}");
+        } else {
+          _showErrorSnackBar("Failed to complete purchase. Please try again. Error: ${e.toString()}");
+        }
+      }
       return false;
     }
   }
-  // --- END OF BACKEND LOGIC ---
+  // --- END OF FIRESTORE LOGIC ---
 
 
-  // --- Receipt Dialog ---
+  // --- Receipt Dialog (No changes needed here) ---
   void _showReceiptDialog() {
-    // Prepare receipt details
+    // ... (Receipt dialog code remains the same as previous version) ...
     List<Widget> receiptTicketWidgets = _ticketsToBuy.entries.map((entry) {
       return Text('  - ${entry.key}: ${entry.value}');
     }).toList();
@@ -276,9 +348,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: const Text('OK'),
               onPressed: () {
                 Navigator.of(dialogContext).pop(); // Close the dialog
-                // Navigate back to user home or maybe a 'My Tickets' screen
-                Navigator.pop(context); // Pop the payment screen itself
-                // OR Navigator.pushNamedAndRemoveUntil(context, AppRoutes.userHome, (route) => false);
+                if (mounted) {
+                  Navigator.pop(context); // Pop the payment screen itself
+                }
               },
             ),
           ],
@@ -289,25 +361,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- Build method remains the same as your last provided version ---
     final theme = Theme.of(context);
 
-    // Build a simple display for the passed data
     List<Widget> ticketSummaryWidgets = _ticketsToBuy.entries.map((entry) {
-      // Find price for display (optional but nice)
-      // This assumes event data with ticketLevels was fetched successfully in _calculateTotalAmount
-      // If _calculateTotalAmount failed, prices might not show correctly here.
-      double price = 0;
-      // TODO: Get price from fetched event data if available to show subtotal
       return Text('  - ${entry.key}: ${entry.value} ticket(s)');
     }).toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Complete Payment'), // Changed title
+        title: const Text('Complete Payment'),
         centerTitle: true,
       ),
-      body: SingleChildScrollView( // Allow scrolling
-        padding: const EdgeInsets.all(20.0), // Increased padding
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -376,14 +443,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(16), // Limit length
-                      _CardNumberInputFormatter(), // Add spacing
+                      LengthLimitingTextInputFormatter(16),
+                      _CardNumberInputFormatter(),
                     ],
                     validator: (value) {
                       if (value == null || value.isEmpty) return 'Enter card number';
                       String cleaned = value.replaceAll(' ', '');
                       if (cleaned.length != 16) return 'Enter a valid 16-digit card number';
-                      // Add more sophisticated checks (Luhn algorithm) in real app
                       return null;
                     },
                     autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -405,20 +471,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                             LengthLimitingTextInputFormatter(4),
-                            _ExpiryDateInputFormatter(), // Add MM/YY slash
+                            _ExpiryDateInputFormatter(),
                           ],
                           validator: (value) {
                             if (value == null || value.isEmpty) return 'Enter expiry';
                             if (!RegExp(r'^(0[1-9]|1[0-2])\/?([0-9]{2})$').hasMatch(value)) {
                               return 'Use MM/YY format';
                             }
-                            // Basic check if expiry is in the past
                             final parts = value.split('/');
                             final month = int.tryParse(parts[0]);
-                            final year = int.tryParse('20${parts[1]}'); // Assume 20xx
+                            final year = int.tryParse('20${parts[1]}');
                             final now = DateTime.now();
                             if (month == null || year == null) return 'Invalid date';
-                            // Check if year is past or current year and month is past
                             if (year < now.year || (year == now.year && month < now.month)) {
                               return 'Card expired';
                             }
@@ -440,14 +504,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(4), // Allow 3 or 4 digits
+                            LengthLimitingTextInputFormatter(4),
                           ],
                           validator: (value) {
                             if (value == null || value.isEmpty) return 'Enter CVV';
                             if (value.length < 3 || value.length > 4) return 'Invalid CVV';
                             return null;
                           },
-                          obscureText: true, // Hide CVV
+                          obscureText: true,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                         ),
                       ),
@@ -457,23 +521,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
             ),
 
-            const SizedBox(height: 35), // More space before button
+            const SizedBox(height: 35),
 
             // --- Payment Button ---
             Center(
               child: ElevatedButton.icon(
-                icon: _isLoading ? Container() : const Icon(Icons.lock_outline), // Hide icon when loading
+                icon: _isLoading ? Container() : const Icon(Icons.lock_outline),
                 label: _isLoading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                    : Text('Pay \$${_totalAmount.toStringAsFixed(2)}'), // Show amount
+                    : Text('Pay \$${_totalAmount.toStringAsFixed(2)}'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                // Disable button while calculating total or processing payment
                 onPressed: (_isLoading || _isLoadingTotal) ? null : _processPayment,
               ),
             ),
+            const SizedBox(height: 20), // Add some padding at the bottom
           ],
         ),
       ),
@@ -482,19 +546,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
 }
 
 
-// --- Custom Input Formatters (Place at bottom or in separate file) ---
-
-// Formatter for Card Number (adds spaces)
+// --- Custom Input Formatters ---
 class _CardNumberInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    var text = newValue.text.replaceAll(' ', ''); // Remove existing spaces
+    var text = newValue.text.replaceAll(' ', '');
     var buffer = StringBuffer();
     for (int i = 0; i < text.length; i++) {
       buffer.write(text[i]);
       var nonZeroIndex = i + 1;
       if (nonZeroIndex % 4 == 0 && nonZeroIndex != text.length) {
-        buffer.write(' '); // Add space after every 4 digits
+        buffer.write(' ');
       }
     }
     var string = buffer.toString();
@@ -505,7 +567,6 @@ class _CardNumberInputFormatter extends TextInputFormatter {
   }
 }
 
-// Formatter for Expiry Date (adds '/')
 class _ExpiryDateInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
@@ -513,7 +574,7 @@ class _ExpiryDateInputFormatter extends TextInputFormatter {
     var buffer = StringBuffer();
     for (int i = 0; i < text.length; i++) {
       buffer.write(text[i]);
-      if (i == 1 && text.length > 2) { // Add slash after MM
+      if (i == 1 && text.length > 2) {
         buffer.write('/');
       }
     }
