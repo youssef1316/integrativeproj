@@ -10,6 +10,7 @@ import 'package:eventmangment/pages/admin_home.dart';        // Contains AdminHo
 import 'package:eventmangment/pages/eventcreation.dart'; // Should provide EventCreationPage
 import 'package:eventmangment/pages/viewevents.dart';    // Should provide ViewEventsPage   // Contains ViewEventsPage
 import 'package:eventmangment/pages/payment_screen.dart';
+import 'package:eventmangment/pages/feedback.dart';
 
 // --- Module Imports (Keep if needed by pages) ---
 import 'package:eventmangment/modules/events.dart';
@@ -31,6 +32,7 @@ class AppRoutes {
   static const String createEvent = '/createEvent';
   static const String viewEvents = '/viewEvents';
   static const String payment = '/payment_screen';
+  static const String feedback = '/feedback';
 
 
   // --- Configure ALL necessary routes ---
@@ -43,6 +45,7 @@ class AppRoutes {
       createEvent: (context) => EventCreationPage(),
       viewEvents: (context) => const ViewEventsPage(),
       payment: (context) => const PaymentScreen(),
+      feedback: (context) => const FeedbackScreen(),
     };
   }
 }
