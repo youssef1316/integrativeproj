@@ -34,17 +34,17 @@ class Ticket {
       // You might add lastUpdated timestamp here too
     };
   }
-
-  // // Optional: Factory constructor to create from Firestore map (useful later)
-  // // factory Ticket.fromMap(Map<String, dynamic> map, String documentId) {
-  // //   return Ticket(
-  // //     ticketId: map['ticketId'] ?? documentId,
-  // //     eventId: map['eventId'] ?? '',
-  // //     levelName: map['levelName'] ?? '',
-  // //     price: (map['price'] as num?)?.toDouble() ?? 0.0,
-  // * status: map['status'] ?? 'unknown',
-  // * userId: map['userId'] as String?,
-  // * purchaseTimestamp: map['purchaseTimestamp'] as Timestamp?,
-  // * );
-  // * }
+  factory Ticket.fromSnapshot(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {}; // Handle potential null data
+    return Ticket(
+      // Use doc.id if 'ticketId' isn't stored within the document itself
+      ticketId: data['ticketId'] ?? doc.id,
+      eventId: data['eventId'] ?? '',
+      levelName: data['levelName'] ?? '',
+      price: (data['price'] as num?)?.toDouble() ?? 0.0, // Safe conversion
+      status: data['status'] ?? 'unknown',
+      userId: data['userId'] as String?,
+      purchaseTimestamp: data['purchaseTimestamp'] as Timestamp?,
+    );
+  }
 }

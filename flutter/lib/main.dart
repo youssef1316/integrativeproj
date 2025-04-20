@@ -1,43 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
+import 'package:firebase_auth/firebase_auth.dart';
 
 // --- Page Imports ---
-import 'package:eventmangment/pages/login.dart';             // Correct: Contains LoginScreen
-import 'package:eventmangment/pages/sign_up.dart';          // Contains SignUpScreen
-import 'package:eventmangment/pages/user_home.dart';         // Contains UserHomePage
-import 'package:eventmangment/pages/admin_home.dart';        // Contains AdminHomePage
-import 'package:eventmangment/pages/eventcreation.dart'; // Should provide EventCreationPage
-import 'package:eventmangment/pages/viewevents.dart';    // Should provide ViewEventsPage   // Contains ViewEventsPage
+import 'package:eventmangment/pages/login.dart';
+import 'package:eventmangment/pages/sign_up.dart';
+import 'package:eventmangment/pages/user_home.dart';
+import 'package:eventmangment/pages/admin_home.dart';
+import 'package:eventmangment/pages/eventcreation.dart';
+import 'package:eventmangment/pages/viewevents.dart';
 import 'package:eventmangment/pages/payment_screen.dart';
 import 'package:eventmangment/pages/feedback.dart';
 import 'package:eventmangment/pages/viewusers.dart';
+import 'package:eventmangment/pages/reports.dart'; // Import ReportsScreen
 
 // --- Module Imports (Keep if needed by pages) ---
-import 'package:eventmangment/modules/events.dart';
-import 'package:eventmangment/modules/Artists.dart';
-import 'package:eventmangment/modules/catering.dart';
-import 'package:eventmangment/modules/feedback.dart';
-import 'package:eventmangment/modules/financial.dart';
+// ... (your module imports)
 
 
 // --- Define All Application Routes ---
 class AppRoutes {
   // Core Navigation
-  static const String login = '/login';       // Route for LoginScreen in login.dart
-  static const String signUp = '/sign_up';    // Route for SignUpScreen in sign_up.dart
-  static const String userHome = '/user_home';  // Route for UserHomePage
-  static const String adminHome = '/admin_home'; // Route for AdminHomePage
-
-  // Other Necessary Routes (Keep if still used from within User/Admin areas)
+  static const String login = '/login';
+  static const String signUp = '/sign_up';
+  static const String userHome = '/user_home';
+  static const String adminHome = '/admin_home';
   static const String createEvent = '/createEvent';
   static const String viewEvents = '/viewEvents';
   static const String payment = '/payment_screen';
   static const String feedback = '/feedback';
   static const String viewUsers = '/viewUsers';
+  static const String Reports = '/reports'; // Keep the route name
 
 
-  // --- Configure ALL necessary routes ---
+  // --- Configure routes WITHOUT Reports ---
   static Map<String, WidgetBuilder> configureRoutes() {
     return {
       login: (context) => LoginScreen(),
@@ -49,14 +45,57 @@ class AppRoutes {
       payment: (context) => const PaymentScreen(),
       feedback: (context) => const FeedbackScreen(),
       viewUsers: (context) => const ViewUsers(),
+      // Remove the Reports route from here
+      // Reports: (context) => const ReportsScreen(eventId: selectedEventId), // REMOVED
     };
+  }
+
+  // --- NEW: Function to handle route generation with arguments ---
+  static Route<dynamic>? generateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case Reports: // Check if the route name matches AppRoutes.Reports
+      // Extract arguments safely
+        final args = settings.arguments;
+        if (args is String) { // Check if the argument is the expected type (String for eventId)
+          return MaterialPageRoute(
+            builder: (context) => ReportsScreen(eventId: args), // Pass the eventId
+          );
+        }
+        // If arguments are not a String or are null, return an error route
+        return _errorRoute("Invalid arguments for Reports route: Expected String eventId");
+
+    // Add cases for other routes that might need arguments
+
+      default:
+      // If the route name doesn't match any case handled by onGenerateRoute,
+      // it might be handled by the 'routes' map or it's an unknown route.
+      // You can return null to let 'routes' handle it, or return an error route.
+      // Let the routes map handle known routes without arguments
+        if (configureRoutes().containsKey(settings.name)) {
+          // This allows routes defined in configureRoutes() to still work
+          return null; // Let MaterialApp's 'routes' handle this
+        }
+        // Otherwise, it's an unknown route
+        return _errorRoute("Unknown route: ${settings.name}");
+    }
+  }
+
+  // --- Helper function for error route ---
+  static Route<dynamic> _errorRoute(String message) {
+    return MaterialPageRoute(builder: (_) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: Center(child: Text('ROUTE ERROR: $message')),
+      );
+    });
   }
 }
 
-void main() async {
-  // Ensure Flutter bindings are initialized
-  WidgetsFlutterBinding.ensureInitialized();
 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // IMPORTANT: Load Firebase options securely, e.g., using flutterfire_cli
+  // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); // Recommended way
   await Firebase.initializeApp(
     options: FirebaseOptions(
         apiKey: "AIzaSyD9yydqQa7fF6O1fr69iA-GLdx5-JjINKY", // Replace with secure loading method
@@ -64,10 +103,9 @@ void main() async {
         projectId: "eventmangmentsystem-c8674",
         storageBucket: "eventmangmentsystem-c8674.appspot.com",
         messagingSenderId: "376211026978",
-        appId: "eventmangmentsystem-c8674" // Replace with secure loading method if different
+        appId: "eventmangmentsystem-c8674"
     ),
   );
-
   runApp(const MyApp());
 }
 
@@ -77,13 +115,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No changes needed inside the MyApp build method itself for this request.
-    // It already correctly uses initialRoute and routes.
     return MaterialApp(
       title: 'Event Management App',
       debugShowCheckedModeBanner: false,
-
-      // Theme Data (Copied from your code)
       theme: ThemeData(
           primarySwatch: Colors.blue,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
@@ -100,15 +134,11 @@ class MyApp extends StatelessWidget {
               )
           )
       ),
-
-      // --- Initial Route ---
-      // This correctly starts the app at the '/login' route,
-      // which maps to LoginScreen from login.dart via configureRoutes.
       initialRoute: AppRoutes.login,
 
-      // --- Routes Configuration ---
-      // This uses the updated configureRoutes method which no longer includes '/'.
-      routes: AppRoutes.configureRoutes(),
+      // --- Use routes AND onGenerateRoute ---
+      routes: AppRoutes.configureRoutes(),   // Handles routes WITHOUT arguments
+      onGenerateRoute: AppRoutes.generateRoute, // Handles routes WITH arguments (like Reports)
 
     );
   }

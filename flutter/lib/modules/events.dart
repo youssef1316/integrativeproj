@@ -1,43 +1,72 @@
 // lib/modules/events.dart
-import 'package:cloud_firestore/cloud_firestore.dart'; // Needed for Timestamp if using from/toJson
-import 'package:eventmangment/modules/Artists.dart'; // [cite: flutter/lib/modules/events.dart]
-import 'package:eventmangment/modules/catering.dart'; // [cite: flutter/lib/modules/events.dart]
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:eventmangment/modules/Artists.dart';
+import 'package:eventmangment/modules/catering.dart';
 
-class Events { // [cite: flutter/lib/modules/events.dart]
-  String eventId; // [cite: flutter/lib/modules/events.dart]
-  String name; // [cite: flutter/lib/modules/events.dart]
-  String loc; // [cite: flutter/lib/modules/events.dart]
-  int slotnum; // [cite: flutter/lib/modules/events.dart]
-  List<Artist> artists; // [cite: flutter/lib/modules/events.dart]
-  List<Catering> catering; // [cite: flutter/lib/modules/events.dart]
+class Events {
+  String eventId;
+  String name;
+  String loc;
+  int slotnum;
+  List<Artist> artists;
+  List<Catering> catering;
   List<Map<String, dynamic>> ticketLevels;
-  // --- ADDED: Event Date field ---
-  DateTime? eventDate; // Use DateTime for picker compatibility, convert to Timestamp for Firestore
+  DateTime? eventDate;
+  // --- ADDED: Financial Fields ---
+  final double totalRevenue;
+  final int totalTicketsSold;
 
-  Events({ // [cite: flutter/lib/modules/events.dart]
-    required this.eventId, // [cite: flutter/lib/modules/events.dart]
-    required this.name, // [cite: flutter/lib/modules/events.dart]
-    required this.loc, // [cite: flutter/lib/modules/events.dart]
-    required this.slotnum, // [cite: flutter/lib/modules/events.dart]
-    required this.artists, // [cite: flutter/lib/modules/events.dart]
-    required this.catering, // [cite: flutter/lib/modules/events.dart]
+  Events({
+    required this.eventId,
+    required this.name,
+    required this.loc,
+    required this.slotnum,
+    required this.artists,
+    required this.catering,
     required this.ticketLevels,
-    this.eventDate, // Add to constructor (optional here, validated in form)
-  }); // [cite: flutter/lib/modules/events.dart]
+    this.eventDate,
+    // --- ADDED: Constructor Params ---
+    required this.totalRevenue,
+    required this.totalTicketsSold,
+  });
 
-  // --- (Optional) Update toJson if you use it ---
-  Map<String, dynamic> toJson() { // Example if you need serialization
+  factory Events.fromSnapshot(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+
+    // Existing parsing logic...
+    List<Artist> parsedArtists = [];
+    List<Catering> parsedCatering = [];
+    List<Map<String, dynamic>> parsedTicketLevels = List<Map<String, dynamic>>.from(data['ticketLevels'] ?? []);
+
+    return Events(
+      eventId: data['eventId'] ?? doc.id,
+      name: data['name'] ?? 'Unnamed Event',
+      loc: data['loc'] ?? '',
+      slotnum: data['slotnum'] ?? 0,
+      artists: parsedArtists,
+      catering: parsedCatering,
+      ticketLevels: parsedTicketLevels,
+      eventDate: (data['eventDate'] as Timestamp?)?.toDate(),
+      // --- ADDED: Parse Financial Fields ---
+      // Ensure field names 'totalRevenue' and 'totalTicketsSold' match Firestore
+      totalRevenue: (data['totalRevenue'] as num?)?.toDouble() ?? 0.0,
+      totalTicketsSold: (data['totalTicketsSold'] as num?)?.toInt() ?? 0,
+    );
+  }
+  // --- END OF ADDED/MODIFIED ---
+
+  Map<String, dynamic> toJson() {
+    // ... existing toJson ...
+    // Add new fields if you use toJson to write back
     return {
       'eventId': eventId,
       'name': name,
       'loc': loc,
       'slotnum': slotnum,
-      // 'artists': artists.map((a) => a.toJson()).toList(), // Requires toJson in Artist
-      // 'catering': catering.map((c) => c.toJson()).toList(), // Requires toJson in Catering
       'ticketLevels': ticketLevels,
-      // Convert DateTime to Timestamp for Firestore serialization
       'eventDate': eventDate != null ? Timestamp.fromDate(eventDate!) : null,
-      // 'createdAt': FieldValue.serverTimestamp(), // Add other fields if needed
+      'totalRevenue': totalRevenue, // Add if writing
+      'totalTicketsSold': totalTicketsSold, // Add if writing
     };
   }
 }

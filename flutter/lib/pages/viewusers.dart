@@ -3,14 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
 import 'package:intl/intl.dart'; // For formatting timestamp
 
+// Renamed class to follow Dart conventions
 class ViewUsers extends StatefulWidget {
   const ViewUsers({super.key});
 
   @override
-  State<ViewUsers> createState() => _ViewUsersScreen();
+  // Renamed state class to follow Dart conventions
+  State<ViewUsers> createState() => _ViewUsersScreenState();
 }
 
-class _ViewUsersScreen extends State<ViewUsers> {
+// Renamed state class to follow Dart conventions
+class _ViewUsersScreenState extends State<ViewUsers> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // State variables
@@ -28,6 +31,7 @@ class _ViewUsersScreen extends State<ViewUsers> {
 
   // --- Fetch ALL Users and ALL Tickets, then Filter/Process Locally ---
   Future<void> _fetchAndProcessDataLocally() async {
+    // ... (fetch logic remains the same as your last provided version) ...
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -35,48 +39,31 @@ class _ViewUsersScreen extends State<ViewUsers> {
     });
 
     try {
-      // 1. Fetch ALL users (NO server-side filtering)
-      // WARNING: Reads all user documents! Consider adding .limit() for safety on large dbs.
       final usersFuture = _firestore.collection('users').get();
-      // final usersFuture = _firestore.collection('users').limit(500).get(); // Example limit
-
-      // 2. Fetch ALL tickets (NO server-side filtering)
-      // WARNING: Reads all ticket documents! Consider adding .limit() for safety.
       final ticketsFuture = _firestore.collection('tickets').get();
-      // final ticketsFuture = _firestore.collection('tickets').limit(2000).get(); // Example limit
 
-
-      // Wait for both fetches
       final results = await Future.wait([usersFuture, ticketsFuture]);
 
       final allUserSnapshot = results[0] as QuerySnapshot;
       final allTicketSnapshot = results[1] as QuerySnapshot;
 
-      // --- 3. LOCAL PROCESSING ---
-
-      // Filter out admin users locally and sort
       final List<QueryDocumentSnapshot> nonAdminUsers = allUserSnapshot.docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>? ?? {};
-        return data['role'] != 'admin'; // Local filter for role
+        return data['role'] != 'admin';
       }).toList();
-      // Sort the filtered list
       nonAdminUsers.sort((a, b) {
         final nameA = (a.data() as Map<String, dynamic>?)?['name'] as String? ?? '';
         final nameB = (b.data() as Map<String, dynamic>?)?['name'] as String? ?? '';
         return nameA.compareTo(nameB);
       });
 
-
-      // Filter for 'sold' tickets locally
       final List<QueryDocumentSnapshot> soldTickets = allTicketSnapshot.docs.where((doc) {
         final data = doc.data() as Map<String, dynamic>? ?? {};
-        return data['status'] == 'sold'; // Local filter for status
+        return data['status'] == 'sold';
       }).toList();
 
-
-      // Group filtered 'sold' tickets by userId locally
       final Map<String, List<QueryDocumentSnapshot>> ticketsMap = {};
-      for (var doc in soldTickets) { // Iterate only over locally filtered sold tickets
+      for (var doc in soldTickets) {
         final data = doc.data() as Map<String, dynamic>? ?? {};
         final userId = data['userId'] as String?;
         if (userId != null) {
@@ -84,26 +71,22 @@ class _ViewUsersScreen extends State<ViewUsers> {
             ticketsMap[userId] = [];
           }
           ticketsMap[userId]!.add(doc);
-          // Sort tickets within the user's list (descending by purchase time)
           ticketsMap[userId]!.sort((a, b) {
             final tsA = (a.data() as Map<String, dynamic>?)?['purchaseTimestamp'] as Timestamp?;
             final tsB = (b.data() as Map<String, dynamic>?)?['purchaseTimestamp'] as Timestamp?;
             if (tsA == null && tsB == null) return 0;
-            if (tsA == null) return 1; // Nulls last
-            if (tsB == null) return -1; // Nulls last
-            return tsB.compareTo(tsA); // Descending
+            if (tsA == null) return 1;
+            if (tsB == null) return -1;
+            return tsB.compareTo(tsA);
           });
         }
       }
-      // --- End of Local Processing ---
 
-
-      // Update state with locally processed data
       if (!mounted) return;
       setState(() {
-        _usersList = nonAdminUsers; // Store filtered non-admin users
-        _soldTicketsList = soldTickets; // Store filtered sold tickets
-        _ticketsByUserMap = ticketsMap; // Store grouped tickets
+        _usersList = nonAdminUsers;
+        _soldTicketsList = soldTickets;
+        _ticketsByUserMap = ticketsMap;
         _isLoading = false;
       });
 
@@ -121,6 +104,7 @@ class _ViewUsersScreen extends State<ViewUsers> {
 
   // Helper to show SnackBars
   void _showSnackBar(String message, {bool isError = true}) {
+    // ... (snackbar logic remains the same) ...
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -130,15 +114,13 @@ class _ViewUsersScreen extends State<ViewUsers> {
     );
   }
 
-  // --- Function to Release a Ticket (Updates Firestore and Local State) ---
+  // --- Function to Release a Ticket ---
   Future<void> _releaseTicket(String ticketId) async {
+    // ... (release ticket logic remains the same) ...
     if (ticketId.isEmpty) return;
 
-    // Find the ticket locally to get userId BEFORE updating Firestore
-    // Search within the locally filtered _soldTicketsList
     final ticketIndex = _soldTicketsList.indexWhere((t) => t.id == ticketId);
     if (ticketIndex == -1) {
-      // Should not happen if button is clicked on displayed ticket, but good check
       _showSnackBar("Error: Ticket $ticketId not found in local list.", isError: true);
       return;
     }
@@ -148,27 +130,18 @@ class _ViewUsersScreen extends State<ViewUsers> {
 
 
     try {
-      // 1. Update Firestore
       await _firestore.collection('tickets').doc(ticketId).update({
         'status': 'available',
         'userId': FieldValue.delete(),
         'purchaseTimestamp': FieldValue.delete(),
       });
 
-      // 2. Update Local State immediately for better UX
       if (mounted) {
         setState(() {
-          // Remove from the local list of sold tickets
           _soldTicketsList.removeAt(ticketIndex);
-          // Remove from the user-specific map
           if(ownerUserId != null && _ticketsByUserMap.containsKey(ownerUserId)) {
             _ticketsByUserMap[ownerUserId]!.removeWhere((t) => t.id == ticketId);
-            // Optional: Clean up map entry if user has no more tickets
-            // if (_ticketsByUserMap[ownerUserId]!.isEmpty) {
-            //    _ticketsByUserMap.remove(ownerUserId);
-            // }
           }
-          // Note: _usersList doesn't need update here as we only modified ticket data
         });
         _showSnackBar("Ticket $ticketId released successfully.", isError: false);
       }
@@ -176,13 +149,12 @@ class _ViewUsersScreen extends State<ViewUsers> {
     } catch (e) {
       print("Error releasing ticket $ticketId: $e");
       _showSnackBar("Failed to release ticket. Error: ${e.toString()}");
-      // Note: If Firestore update fails, local state is NOT reverted here.
-      // More complex logic would be needed for rollback if required.
     }
   }
 
-  // --- Confirmation Dialog for Releasing Ticket (No changes needed) ---
+  // --- Confirmation Dialog for Releasing Ticket ---
   void _confirmReleaseTicket(BuildContext context, String ticketId, String? eventId) {
+    // ... (confirm dialog logic remains the same) ...
     if (!mounted) return;
     showDialog(
       context: context,
@@ -202,7 +174,7 @@ class _ViewUsersScreen extends State<ViewUsers> {
               child: const Text("Release Ticket"),
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                _releaseTicket(ticketId); // Proceed with releasing
+                _releaseTicket(ticketId);
               },
             ),
           ],
@@ -215,18 +187,25 @@ class _ViewUsersScreen extends State<ViewUsers> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // *** ADDED: Set background color for the Scaffold ***
+      backgroundColor: Colors.white,
+      // ****************************************************
       appBar: AppBar(
-          title: const Text("Users & Tickets"), // Updated title for clarity
+          title: const Text("Users & Tickets"), // Updated title
           centerTitle: true,
+          // Ensure AppBar background is also white if desired, or contrasts
+          backgroundColor: Colors.white, // Set AppBar background to white
+          foregroundColor: Colors.black, // Ensure title/icons are visible
+          elevation: 1.0, // Add slight elevation for separation
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: 'Refresh Data',
-              onPressed: _fetchAndProcessDataLocally, // Call fetch again
+              onPressed: _fetchAndProcessDataLocally,
             )
           ]
       ),
-      body: _buildBody(),
+      body: _buildBody(), // Body content builder remains the same
     );
   }
 
@@ -243,71 +222,84 @@ class _ViewUsersScreen extends State<ViewUsers> {
         ),
       );
     }
-    // Use the locally filtered _usersList
     if (_usersList.isEmpty) {
       return const Center(child: Text("No non-admin users found."));
     }
 
-    // Data is ready, build the list using locally filtered/processed data
-    return ListView.builder(
-      itemCount: _usersList.length, // Count of non-admin users
-      itemBuilder: (context, index) {
-        final userDoc = _usersList[index]; // Already filtered user
-        final userData = userDoc.data() as Map<String, dynamic>? ?? {};
-        final userName = userData['name'] ?? 'N/A';
-        final userEmail = userData['email'] ?? 'N/A';
-        final userRole = userData['role'] ?? 'N/A';
-        final userId = userDoc.id;
+    // Data is ready, build the list
+    return Container( // Wrap ListView in a Container if Scaffold bg isn't enough
+      color: Colors.white, // Ensure container background is white
+      child: ListView.builder(
+        itemCount: _usersList.length,
+        itemBuilder: (context, index) {
+          final userDoc = _usersList[index];
+          final userData = userDoc.data() as Map<String, dynamic>? ?? {};
+          final userName = userData['name'] ?? 'N/A';
+          final userEmail = userData['email'] ?? 'N/A';
+          final userRole = userData['role'] ?? 'N/A';
+          final userId = userDoc.id;
 
-        // Get the tickets for this user from the pre-processed map
-        final userTickets = _ticketsByUserMap[userId] ?? [];
+          final userTickets = _ticketsByUserMap[userId] ?? [];
 
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-          child: ExpansionTile(
-            leading: CircleAvatar(child: Icon(Icons.person)),
-            title: Text(userName, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text("Email: $userEmail\nRole: $userRole"),
-            childrenPadding: const EdgeInsets.only(left: 16.0, right: 8.0, bottom: 8.0),
-            children: <Widget>[
-              // Display tickets from the map
-              if (userTickets.isEmpty)
-                const ListTile(title: Text("No tickets purchased by this user."))
-              else
-                Column( // Use Column for the list of tickets
-                  children: userTickets.map((ticketDoc) { // Iterate over locally stored tickets for user
-                    final ticketData = ticketDoc.data() as Map<String, dynamic>? ?? {};
-                    final ticketId = ticketDoc.id;
-                    final eventId = ticketData['eventId'] ?? 'N/A';
-                    final levelName = ticketData['levelName'] ?? 'N/A';
-                    final purchaseTs = ticketData['purchaseTimestamp'] as Timestamp?;
-                    String purchaseDate = 'N/A';
-                    if (purchaseTs != null) {
-                      try {
-                        purchaseDate = DateFormat('yyyy-MM-dd hh:mm a').format(purchaseTs.toDate());
-                      } catch(e){ purchaseDate = 'Invalid Date'; }
-                    }
+          // Use Card for better visual separation on white background
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
+            elevation: 1.5, // Add slight elevation to cards
+            color: Colors.white, // Ensure card background is white
+            child: ExpansionTile(
+              leading: CircleAvatar(
+                child: Icon(Icons.person),
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer, // Add bg color
+              ),
+              title: Text(userName, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text("Email: $userEmail\nRole: $userRole"),
+              childrenPadding: const EdgeInsets.only(left: 16.0, right: 8.0, bottom: 8.0),
+              // Expansion tile children background defaults to theme, might need explicit coloring if needed
+              // backgroundColor: Colors.white, // Optional: If expansion area needs explicit white
+              children: <Widget>[
+                // Display tickets from the map
+                if (userTickets.isEmpty)
+                  const ListTile(
+                      dense: true, // Make it less prominent
+                      title: Text("No tickets purchased by this user.", style: TextStyle(fontStyle: FontStyle.italic))
+                  )
+                else
+                  Column(
+                    children: userTickets.map((ticketDoc) {
+                      final ticketData = ticketDoc.data() as Map<String, dynamic>? ?? {};
+                      final ticketId = ticketDoc.id;
+                      final eventId = ticketData['eventId'] ?? 'N/A';
+                      final levelName = ticketData['levelName'] ?? 'N/A';
+                      final purchaseTs = ticketData['purchaseTimestamp'] as Timestamp?;
+                      String purchaseDate = 'N/A';
+                      if (purchaseTs != null) {
+                        try {
+                          purchaseDate = DateFormat('yyyy-MM-dd hh:mm a').format(purchaseTs.toDate());
+                        } catch(e){ purchaseDate = 'Invalid Date'; }
+                      }
 
-                    return ListTile(
-                      dense: true,
-                      leading: const Icon(Icons.confirmation_num_outlined, size: 20),
-                      title: Text("Event: $eventId", style: Theme.of(context).textTheme.bodyMedium),
-                      subtitle: Text("Level: $levelName\nID: $ticketId\nPurchased: $purchaseDate", style: Theme.of(context).textTheme.bodySmall),
-                      isThreeLine: true,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red, size: 22),
-                        tooltip: 'Make Ticket Available Again',
-                        onPressed: () {
-                          _confirmReleaseTicket(context, ticketId, eventId);
-                        },
-                      ),
-                    );
-                  }).toList(),
-                ),
-            ],
-          ),
-        );
-      },
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.confirmation_num_outlined, size: 20),
+                        title: Text("Event: $eventId", style: Theme.of(context).textTheme.bodyMedium),
+                        subtitle: Text("Level: $levelName\nID: $ticketId\nPurchased: $purchaseDate", style: Theme.of(context).textTheme.bodySmall),
+                        isThreeLine: true,
+                        trailing: IconButton(
+                          // Changed icon to delete for clarity
+                          icon: const Icon(Icons.delete_forever_outlined, color: Colors.red, size: 22),
+                          tooltip: 'Make Ticket Available Again',
+                          onPressed: () {
+                            _confirmReleaseTicket(context, ticketId, eventId);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
