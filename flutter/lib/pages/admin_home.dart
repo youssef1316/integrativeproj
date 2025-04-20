@@ -1,10 +1,11 @@
+// lib/pages/admin_home.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth for logout
 // Make sure these imports point to the correct page files
 import 'package:eventmangment/pages/eventcreation.dart';
 import 'package:eventmangment/pages/viewevents.dart';
 // Import main.dart or your routes file to access AppRoutes constants
-import 'package:eventmangment/main.dart';
+import 'package:eventmangment/main.dart'; // Ensure AppRoutes.viewUsers will be defined here
 
 // --- Constants (Copied from original HomeScreen - Keep or Centralize) ---
 class _AppSpacings {
@@ -27,7 +28,8 @@ class _AppElevation {
 
 class _AppTextStyles {
   static const TextStyle buttonText = TextStyle(
-    color: Colors.black,
+    // Changed text color to white for better contrast on colored buttons
+    color: Colors.white,
     fontSize: 18,
     fontWeight: FontWeight.bold,
   );
@@ -46,6 +48,8 @@ class _AppColors {
   static const Color appBarBackground = Colors.white;
   static const Color createButtonBackground = Colors.red;
   static const Color viewButtonBackground = Colors.blue;
+  // *** ADDED: Color for the new View Users button ***
+  static const Color viewUsersButtonBackground = Colors.green; // Example color
   static const Color logoutButtonBorder = Colors.redAccent; // Color for logout border
 }
 // --- End Constants ---
@@ -58,6 +62,8 @@ class AdminHomePage extends StatelessWidget {
 
   // Helper method for navigation
   void _navigateTo(BuildContext context, String routeName) {
+    // Add basic check if route exists before pushing? Optional.
+    // Example: if (AppRoutes.routes.containsKey(routeName)) ...
     Navigator.pushNamed(context, routeName);
   }
 
@@ -65,9 +71,7 @@ class AdminHomePage extends StatelessWidget {
   Future<void> _logout(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
-      // Navigate back to Login screen and remove all previous routes
-      // so the user cannot press 'back' to get into the admin area.
-      if (context.mounted) { // Check if the widget is still mounted
+      if (context.mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.login, // Navigate to the login route
@@ -76,7 +80,6 @@ class AdminHomePage extends StatelessWidget {
       }
     } catch (e) {
       print("Error during logout: $e");
-      // Optionally show a SnackBar
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -106,6 +109,7 @@ class AdminHomePage extends StatelessWidget {
         ),
         elevation: _AppElevation.buttonElevation,
       ),
+      // Ensure button text uses the updated style with white color
       child: Text(text, style: _AppTextStyles.buttonText),
     );
   }
@@ -115,28 +119,28 @@ class AdminHomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: _AppColors.primaryBackground,
       appBar: AppBar(
-        // --- Changed AppBar Title ---
         title: const Text(
-          'Admin Dashboard', // Appropriate title
+          'Admin Dashboard',
           style: _AppTextStyles.appBarTitle,
         ),
         backgroundColor: _AppColors.appBarBackground,
         elevation: 1,
         centerTitle: true,
-        automaticallyImplyLeading: false, // Prevent back button on AppBar
+        automaticallyImplyLeading: false,
       ),
       body: Center(
-        child: Padding( // Added padding around the column for better spacing
+        child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Keep content centered vertically
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch buttons horizontally
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Button for Create Event
               _buildStyledButton(
                 context: context,
                 text: 'Create Event',
                 backgroundColor: _AppColors.createButtonBackground,
+                // Ensure AppRoutes.createEvent is correctly defined in your routes
                 onPressed: () => _navigateTo(context, AppRoutes.createEvent),
               ),
               const SizedBox(height: _AppSpacings.verticalButtonSpacing),
@@ -144,26 +148,36 @@ class AdminHomePage extends StatelessWidget {
               // Button for View Events
               _buildStyledButton(
                 context: context,
-                text: 'View All Events', // Changed text slightly
+                text: 'View All Events',
                 backgroundColor: _AppColors.viewButtonBackground,
+                // Ensure AppRoutes.viewEvents is correctly defined in your routes
                 onPressed: () => _navigateTo(context, AppRoutes.viewEvents),
               ),
+              const SizedBox(height: _AppSpacings.verticalButtonSpacing), // Spacing
 
-              // --- Added Spacing and Logout Button ---
-              const SizedBox(height: _AppSpacings.bottomButtonSpacing), // More space before logout
-              OutlinedButton.icon( // Using OutlinedButton for visual difference
+              // *** ADDED: Button for View Users ***
+              _buildStyledButton(
+                context: context,
+                text: 'View Users', // Button Label
+                backgroundColor: _AppColors.viewUsersButtonBackground, // Use new color
+                // Ensure AppRoutes.viewUsers is defined in your routes (main.dart)
+                onPressed: () => _navigateTo(context, AppRoutes.viewUsers),
+              ),
+              // ************************************
+
+              const SizedBox(height: _AppSpacings.bottomButtonSpacing), // Spacing before logout
+              OutlinedButton.icon(
                 icon: const Icon(Icons.logout, color: Colors.redAccent),
                 label: const Text('Logout', style: _AppTextStyles.logoutButtonText),
                 style: OutlinedButton.styleFrom(
                   padding: _AppPadding.logoutButtonPadding,
-                  side: const BorderSide(color: _AppColors.logoutButtonBorder, width: 1.5), // Red border
+                  side: const BorderSide(color: _AppColors.logoutButtonBorder, width: 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(_AppRadius.buttonRadius),
                   ),
                 ),
-                onPressed: () => _logout(context), // Call the logout function
+                onPressed: () => _logout(context),
               ),
-              // --------------------------------------
             ],
           ),
         ),
