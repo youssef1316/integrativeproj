@@ -1,4 +1,4 @@
-"import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // [cite: flutter/lib/pages/sign_up.dart]
 import 'package:cloud_firestore/cloud_firestore.dart'; // [cite: flutter/lib/pages/sign_up.dart]
 // Assuming AppRoutes is accessible via main.dart or a dedicated file if needed for navigation logic later
