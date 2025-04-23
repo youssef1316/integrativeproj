@@ -1,7 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+// Import main.dart (or your routes file) to access the central AppRoutes
 import 'package:eventmangment/main.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -30,24 +30,25 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        backgroundColor: isError ? CupertinoColors.systemRed : CupertinoColors.systemGreen,
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : Colors.green,
       ),
     );
   }
 
   Future<void> _loginUser() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
+    // --- Use the Form key to validate ---
+    if (!_formKey.currentState!.validate()) {
+      // If validation fails, do nothing more
+      return;
+    }
+    // --- Validation passed, proceed ---
+    setState(() { _isLoading = true; });
 
     try {
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-
       User? user = userCredential.user;
 
       if (user != null) {
@@ -60,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final userData = userDoc.data() as Map<String, dynamic>;
           final String role = userData['role'] ?? 'user';
           if (!mounted) return;
-
+          // Use AppRoutes constants defined in main.dart
           if (role == 'admin') {
             Navigator.pushReplacementNamed(context, AppRoutes.adminHome);
           } else {
@@ -71,117 +72,121 @@ class _LoginScreenState extends State<LoginScreen> {
           if (!mounted) return;
           Navigator.pushReplacementNamed(context, AppRoutes.userHome);
         }
+      } else {
+        _showSnackBar("Login failed. User object not found.", isError: true);
       }
     } on FirebaseAuthException catch (e) {
-      // [Keep all your existing error handling]
+      String message = "An error occurred. Please try again.";
+      if (e.code == 'user-not-found' || e.code == 'invalid-email') message = 'No user found for that email.';
+      else if (e.code == 'wrong-password' || e.code == 'invalid-credential') message = 'Wrong password provided.';
+      else if (e.code == 'too-many-requests') message = 'Too many login attempts. Please try again later.';
+      else if (e.code == 'network-request-failed') message = 'Network error. Please check your connection.';
+      print("FirebaseAuthException: ${e.code} - ${e.message}");
+      _showSnackBar(message, isError: true);
     } catch (e) {
-      // [Keep existing error handling]
+      print("General Login Error: $e");
+      _showSnackBar("An unexpected error occurred: $e", isError: true);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() { _isLoading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text("Sign In"),
-        border: null,
-      ),
-      child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 24),
-                      // Email Field
-                      CupertinoFormSection(
-                        backgroundColor: Colors.transparent,
-                        margin: EdgeInsets.zero,
-                        children: [
-                          CupertinoTextFormFieldRow(
-                            controller: _emailController,
-                            prefix: const Icon(CupertinoIcons.mail, size: 20),
-                            placeholder: "Email",
-                            keyboardType: TextInputType.emailAddress,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your email';
-                              }
-                              bool emailValid = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
-                                  .hasMatch(value.trim());
-                              if (!emailValid) return 'Please enter a valid email';
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // Password Field
-                      CupertinoFormSection(
-                        backgroundColor: Colors.transparent,
-                        margin: EdgeInsets.zero,
-                        children: [
-                          CupertinoTextFormFieldRow(
-                            controller: _passwordController,
-                            prefix: const Icon(CupertinoIcons.lock, size: 20),
-                            placeholder: "Password",
-                            obscureText: !_passwordVisible,
-                            suffix: CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              child: Icon(
-                                _passwordVisible
-                                    ? CupertinoIcons.eye_slash
-                                    : CupertinoIcons.eye,
-                                size: 20,
-                              ),
-                              onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
-                              }
-                              if (value.length < 6) return 'Password must be at least 6 characters';
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                      // Login Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: CupertinoButton.filled(
-                          onPressed: _isLoading ? null : _loginUser,
-                          child: _isLoading
-                              ? const CupertinoActivityIndicator()
-                              : const Text("Sign In"),
-                        ),
-                      ),
-                      const Spacer(),
-                      // Sign Up Link
-                      CupertinoButton(
-                        onPressed: _isLoading ? null : () {
-                          Navigator.pushNamed(context, AppRoutes.signUp);
-                        },
-                        child: const Text(
-                          "Create New Account",
-                          style: TextStyle(color: CupertinoColors.link),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text("Login"), centerTitle: true),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form( // Form widget uses the _formKey
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // --- Email Field ---
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  keyboardType: TextInputType.emailAddress,
+                  // --- ADDED: Email Validation Logic ---
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    bool emailValid = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
+                        .hasMatch(value.trim());
+                    if (!emailValid) {
+                      return 'Please enter a valid email format';
+                    }
+                    return null; // Return null if valid
+                  },
+                  // --------------------------------------
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                 ),
-              ),
+                const SizedBox(height: 16),
+
+                // --- Password Field ---
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: IconButton(
+                        icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _passwordVisible = !_passwordVisible)),
+                  ),
+                  obscureText: !_passwordVisible,
+                  // --- ADDED: Password Validation Logic ---
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null; // Return null if valid
+                  },
+                  // ----------------------------------------
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 24),
+
+                // --- Login Button ---
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _loginUser, // Calls _loginUser which now uses validation
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                      : const Text("Login", style: TextStyle(fontSize: 16)),
+                ),
+                const SizedBox(height: 20),
+
+                // --- Sign Up Navigation ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Don't have an account?"),
+                    TextButton(
+                      onPressed: _isLoading ? null : () {
+                        // Use AppRoutes constant defined centrally
+                        Navigator.pushNamed(context, AppRoutes.signUp);
+                      },
+                      child: const Text("Sign Up"),
+                    ),
+                  ],
+                ),
+                // -----------------------------
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
