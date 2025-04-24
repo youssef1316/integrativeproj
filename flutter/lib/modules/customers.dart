@@ -12,14 +12,12 @@ class Customer {
     required this.email,
   });
 
-  // Factory constructor to create instance from Firestore data
   factory Customer.fromSnapshot(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
     return Customer(
-      id: doc.id, // Use the document ID from Firestore
-      // Ensure 'name' and 'email' match your field names in Firestore
+      id: doc.id,
       name: data['name'] ?? 'Unknown User',
-      email: data['email'] ?? '', // Provide default empty string if email is missing
+      email: data['email'] ?? '',
     );
   }
 }

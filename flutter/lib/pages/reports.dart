@@ -27,17 +27,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // State variables
   bool _isLoading = true;
   String? _error;
-  Events? _eventDetails; // Stores fetched event data (includes financial totals)
+  Events? _eventDetails;
 
   // Feedback Data
   List<FeedbackItem> _eventFeedback = [];
-
-  // --- NEW: Store fetched user data ---
-  Map<String, Customer> _userDataMap = {}; // Map<userId, Customer>
-
-  // --- REMOVED: Calculated variables (now fetched directly) ---
-  // int _ticketsSold = 0;
-  // double _totalRevenue = 0.0;
+  Map<String, Customer> _userDataMap = {};
 
   @override
   void initState() {
@@ -45,7 +39,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _fetchReportData(widget.eventId);
   }
 
-  // --- RENAMED and REWRITTEN: Fetch required data ---
   Future<void> _fetchReportData(String eventId) async {
     if (eventId.isEmpty) {
       setState(() {
@@ -103,9 +96,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           }
         }
       }
-
-      // --- REMOVED: _processFetchedData() is no longer needed ---
-      // Data is now used directly from _eventDetails and _eventFeedback/_userDataMap
 
     } catch (e, stacktrace) {
       print("Error fetching report data: $e");
@@ -345,16 +335,6 @@ class FeedbackCard extends StatelessWidget {
                   color: feedback.comment.isNotEmpty ? null : Colors.grey[600]
               ),
             ),
-            // --- Optional: Display submission time ---
-            /*
-             if (feedback.submittedAt != null) ...[
-                 const SizedBox(height: 8),
-                 Text(
-                    "Submitted: ${DateFormat.yMd().add_jm().format(feedback.submittedAt!.toDate())}", // Format timestamp
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                 ),
-             ]
-            */
           ],
         ),
       ),

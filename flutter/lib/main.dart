@@ -67,10 +67,7 @@ class AppRoutes {
     // Add cases for other routes that might need arguments
 
       default:
-      // If the route name doesn't match any case handled by onGenerateRoute,
-      // it might be handled by the 'routes' map or it's an unknown route.
-      // You can return null to let 'routes' handle it, or return an error route.
-      // Let the routes map handle known routes without arguments
+
         if (configureRoutes().containsKey(settings.name)) {
           // This allows routes defined in configureRoutes() to still work
           return null; // Let MaterialApp's 'routes' handle this
@@ -94,8 +91,7 @@ class AppRoutes {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // IMPORTANT: Load Firebase options securely, e.g., using flutterfire_cli
-  // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform); // Recommended way
+
   await Firebase.initializeApp(
     options: FirebaseOptions(
         apiKey: "AIzaSyD9yydqQa7fF6O1fr69iA-GLdx5-JjINKY", // Replace with secure loading method

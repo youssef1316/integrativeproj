@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -30,15 +29,18 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? CupertinoColors.systemRed : CupertinoColors.activeGreen,
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : Colors.green,
       ),
     );
   }
 
   Future<void> _loginUser() async {
+    // --- Use the Form key to validate ---
     if (!_formKey.currentState!.validate()) {
+      // If validation fails, do nothing more
       return;
     }
+    // --- Validation passed, proceed ---
     setState(() { _isLoading = true; });
 
     try {
@@ -58,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final userData = userDoc.data() as Map<String, dynamic>;
           final String role = userData['role'] ?? 'user';
           if (!mounted) return;
+          // Use AppRoutes constants defined in main.dart
           if (role == 'admin') {
             Navigator.pushReplacementNamed(context, AppRoutes.adminHome);
           } else {
@@ -89,86 +92,98 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text("Login"),
-      ),
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  CupertinoTextFormFieldRow(
-                    controller: _emailController,
-                    placeholder: 'Email',
-                    prefix: const Icon(CupertinoIcons.mail),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      bool emailValid = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
-                          .hasMatch(value.trim());
-                      if (!emailValid) {
-                        return 'Please enter a valid email format';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text("Login"), centerTitle: true),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form( // Form widget uses the _formKey
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // --- Email Field ---
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  keyboardType: TextInputType.emailAddress,
+                  // --- ADDED: Email Validation Logic ---
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    bool emailValid = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
+                        .hasMatch(value.trim());
+                    if (!emailValid) {
+                      return 'Please enter a valid email format';
+                    }
+                    return null; // Return null if valid
+                  },
+                  // --------------------------------------
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 16),
 
-                  CupertinoTextFormFieldRow(
-                    controller: _passwordController,
-                    placeholder: 'Password',
-                    prefix: const Icon(CupertinoIcons.lock),
-                    obscureText: !_passwordVisible,
-                    suffix: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-                      child: Icon(_passwordVisible ? CupertinoIcons.eye_slash : CupertinoIcons.eye),
+                // --- Password Field ---
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: IconButton(
+                        icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _passwordVisible = !_passwordVisible)),
+                  ),
+                  obscureText: !_passwordVisible,
+                  // --- ADDED: Password Validation Logic ---
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null; // Return null if valid
+                  },
+                  // ----------------------------------------
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 24),
+
+                // --- Login Button ---
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _loginUser, // Calls _loginUser which now uses validation
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                      : const Text("Login", style: TextStyle(fontSize: 16)),
+                ),
+                const SizedBox(height: 20),
+
+                // --- Sign Up Navigation ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Don't have an account?"),
+                    TextButton(
+                      onPressed: _isLoading ? null : () {
+                        // Use AppRoutes constant defined centrally
+                        Navigator.pushNamed(context, AppRoutes.signUp);
+                      },
+                      child: const Text("Sign Up"),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: CupertinoButton.filled(
-                      onPressed: _isLoading ? null : _loginUser,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: _isLoading
-                          ? const CupertinoActivityIndicator()
-                          : const Text("Login"),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Don't have an account?"),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: _isLoading ? null : () {
-                          Navigator.pushNamed(context, AppRoutes.signUp);
-                        },
-                        child: const Text("Sign Up"),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+                // -----------------------------
+              ],
             ),
           ),
         ),

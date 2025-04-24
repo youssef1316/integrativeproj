@@ -1,9 +1,9 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart'; // For TextInputFormatters
+import 'package:firebase_auth/firebase_auth.dart'; // To get current user ID
+import 'package:cloud_firestore/cloud_firestore.dart'; // To update tickets and store payment
 import 'package:eventmangment/main.dart';
+
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -50,6 +50,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _showErrorSnackBar("Error loading payment details.");
     }
   }
+
 
   Future<void> _calculateTotalAmount() async {
     if (!mounted) return;
@@ -106,6 +107,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _cardNumberController.dispose();
+    _expiryDateController.dispose();
+    _cvvController.dispose();
+    _cardHolderNameController.dispose();
+    super.dispose();
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
+    );
+  }
+
+  // --- Payment Processing (Simulation) ---
   Future<void> _processPayment() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -113,14 +134,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (!mounted) return;
     setState(() { _isLoading = true; });
 
+    // Simulate payment gateway interaction
     await Future.delayed(const Duration(seconds: 2));
-    bool paymentSuccess = true;
+    bool paymentSuccess = true; // Assume success for simulation
 
     bool backendUpdateSuccess = false;
     if (paymentSuccess) {
+      // Pass payment details needed for storage to the backend function
       final String cardLast4 = _cardNumberController.text.length >= 4
           ? _cardNumberController.text.substring(_cardNumberController.text.length - 4)
-          : '**';
+          : '****';
       final String cardHolderName = _cardHolderNameController.text;
 
       backendUpdateSuccess = await _assignTicketsAndRecordPayment(
@@ -132,7 +155,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     }
 
-    if (mounted) {
+    if (mounted) { // Check context is still valid before updating UI
       setState(() { _isLoading = false; });
 
       if (paymentSuccess && backendUpdateSuccess) {
@@ -145,6 +168,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  // --- Firestore Transaction: Assign Tickets, Record Payment, Update Event Totals, Update Event Payment Log ---
   Future<bool> _assignTicketsAndRecordPayment({
     required String eventId,
     required Map<String, int> ticketsToBuy,
@@ -159,6 +183,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     final firestore = FirebaseFirestore.instance;
     final DocumentReference eventRef = firestore.collection('events').doc(eventId);
+    // *** Reference to the specific event's payment log document ***
     final DocumentReference paymentLogRef = firestore.collection('event_payment_logs').doc(eventId);
 
     try {
@@ -168,6 +193,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         List<Future<QuerySnapshot>> availabilityChecks = [];
         Map<String, List<DocumentSnapshot>> availableDocsPerLevel = {};
 
+        // 1. Check availability
         ticketsToBuy.forEach((levelName, quantity) {
           final query = firestore
               .collection('tickets')
@@ -179,6 +205,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
         final List<QuerySnapshot> results = await Future.wait(availabilityChecks);
 
+        // Verify counts & collect docs
         bool sufficientTickets = true;
         int totalQuantitySoldThisTx = 0;
         int checkIndex = 0;
@@ -200,8 +227,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           throw FirebaseException(plugin: 'App', code: 'unavailable-tickets', message: 'Not enough tickets available for one or more levels.');
         }
 
+        // Consistent Timestamp
         final Timestamp now = Timestamp.now();
 
+        // 2. Update tickets
         availableDocsPerLevel.forEach((levelName, docsToUpdate) {
           for (var doc in docsToUpdate) {
             transaction.update(doc.reference, {
@@ -212,8 +241,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           }
         });
 
+        // 3. Create individual payment record (optional but good for detail)
         final paymentData = {
-          'paymentId': paymentRecordRef.id,
+          'paymentId': paymentRecordRef.id, // Use pre-generated ref ID
           'userId': userId,
           'eventId': eventId,
           'amount': totalAmount,
@@ -225,30 +255,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
         };
         transaction.set(paymentRecordRef, paymentData);
 
+        // 4. Update Event Aggregate Totals
         transaction.update(eventRef, {
           'totalRevenue': FieldValue.increment(totalAmount),
           'totalTicketsSold': FieldValue.increment(totalQuantitySoldThisTx),
           'lastTransactionTimestamp': now,
         });
 
+        // **** 5. Update Event Payment Log (Add to Array) ****
         final paymentLogEntry = {
           'userId': userId,
           'amount': totalAmount,
           'paymentTimestamp': now,
-          'paymentRecordId': paymentRecordRef.id,
-          'tickets': ticketsToBuy,
+          'paymentRecordId': paymentRecordRef.id, // Link to the detailed record
+          'tickets': ticketsToBuy, // Optionally store tickets summary here too
         };
+        // Use arrayUnion to add the new map to the 'payments' array
         transaction.update(paymentLogRef, {
           'payments': FieldValue.arrayUnion([paymentLogEntry])
         });
-      });
 
-      print("Firestore transaction successful");
+      }); // End of transaction block
+
+      print("Firestore transaction successful - Tickets assigned, payment recorded, event updated, payment log updated.");
       return true;
 
     } catch (e) {
       print("Firestore transaction failed: $e");
       if (mounted) {
+        // Check if the error is because the payment log document doesn't exist (should have been created with the event)
         if (e is FirebaseException && e.code == 'not-found') {
           _showErrorSnackBar("Failed to complete purchase. Payment log for event not found. Error: ${e.toString()}");
         } else {
@@ -258,54 +293,57 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return false;
     }
   }
+  // --- END OF FIRESTORE LOGIC ---
 
+
+  // --- Receipt Dialog (No changes needed here) ---
   void _showReceiptDialog() {
+    // ... (Receipt dialog code remains the same as previous version) ...
     List<Widget> receiptTicketWidgets = _ticketsToBuy.entries.map((entry) {
       return Text('  - ${entry.key}: ${entry.value}');
     }).toList();
 
-    showCupertinoDialog(
+    showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: false, // User must explicitly close
       builder: (BuildContext dialogContext) {
-        return CupertinoAlertDialog(
+        return AlertDialog(
           title: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(CupertinoIcons.check_mark_circled, color: CupertinoColors.systemGreen),
-              SizedBox(width: 8),
+              Icon(Icons.check_circle, color: Colors.green),
+              SizedBox(width: 10),
               Text('Payment Successful'),
             ],
           ),
           content: SingleChildScrollView(
-            child: Column(
+            child: ListBody(
               children: <Widget>[
                 const Text('Thank you for your purchase!'),
-                const SizedBox(height: 16),
+                const SizedBox(height: 15),
                 Text('Event ID: $_eventId'),
-                const SizedBox(height: 8),
+                const SizedBox(height: 5),
                 const Text('Tickets Purchased:'),
                 ...receiptTicketWidgets,
-                const SizedBox(height: 16),
+                const SizedBox(height: 15),
                 Text(
                   'Total Amount Paid: \$${_totalAmount.toStringAsFixed(2)}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
-                  'Card ending in: ** ** ** ${_cardNumberController.text.length >= 4 ? _cardNumberController.text.substring(_cardNumberController.text.length - 4) : '**'}',
-                  style: TextStyle(color: CupertinoColors.systemGrey),
+                  'Card ending in: **** **** **** ${_cardNumberController.text.length >= 4 ? _cardNumberController.text.substring(_cardNumberController.text.length - 4) : '****'}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
           ),
-          actions: <CupertinoDialogAction>[
-            CupertinoDialogAction(
+          actions: <Widget>[
+            TextButton(
               child: const Text('OK'),
               onPressed: () {
-                Navigator.of(dialogContext).pop();
+                Navigator.of(dialogContext).pop(); // Close the dialog
                 if (mounted) {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // Pop the payment screen itself
                 }
               },
             ),
@@ -315,176 +353,185 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  void _showErrorSnackBar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        backgroundColor: CupertinoColors.systemRed,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _cardNumberController.dispose();
-    _expiryDateController.dispose();
-    _cvvController.dispose();
-    _cardHolderNameController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Complete Payment'),
-        previousPageTitle: 'Back',
+    // --- Build method remains the same as your last provided version ---
+    final theme = Theme.of(context);
+
+    List<Widget> ticketSummaryWidgets = _ticketsToBuy.entries.map((entry) {
+      return Text('  - ${entry.key}: ${entry.value} ticket(s)');
+    }).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Complete Payment'),
+        centerTitle: true,
       ),
-      child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.all(20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  CupertinoFormSection.insetGrouped(
-                    header: const Text('ORDER SUMMARY'),
-                    children: [
-                      CupertinoListTile(
-                        title: const Text('Event ID'),
-                        trailing: Text(_eventId),
-                      ),
-                      if (_ticketsToBuy.isNotEmpty) ...[
-                        const CupertinoListTile(
-                          title: Text('Selected Tickets'),
-                        ),
-                        ..._ticketsToBuy.entries.map((entry) => CupertinoListTile(
-                          title: Text(entry.key),
-                          trailing: Text('${entry.value} ticket(s)'),
-                        )).toList(),
-                      ],
-                      CupertinoListTile(
-                        title: const Text('Total Amount'),
-                        trailing: _isLoadingTotal
-                            ? const CupertinoActivityIndicator()
-                            : Text(
-                          '\$${_totalAmount.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: CupertinoTheme.of(context).primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- Order Summary ---
+            Text('Order Summary', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Text('Event ID: $_eventId', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 5),
+            if (_ticketsToBuy.isNotEmpty) ...[
+              const Text('Selected Tickets:'),
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0, top: 4.0),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: ticketSummaryWidgets),
+              ),
+            ],
+            const SizedBox(height: 15),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total Amount:', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                if (_isLoadingTotal)
+                  const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                else
+                  Text(
+                      '\$${_totalAmount.toStringAsFixed(2)}',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)
                   ),
+              ],
+            ),
+            const Divider(height: 30, thickness: 1),
 
-                  const SizedBox(height: 20),
-
-                  CupertinoFormSection.insetGrouped(
-                    header: const Text('PAYMENT DETAILS'),
-                    footer: const Text(
-                      "WARNING: This is for demonstration only. DO NOT enter real card details.",
-                      style: TextStyle(color: CupertinoColors.systemRed),
+            // --- Payment Form ---
+            Text('Payment Details', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: 15),
+            const Text(
+              "WARNING: This is for demonstration only. DO NOT enter real card details.",
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+            const SizedBox(height: 15),
+            Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Card Holder Name
+                  TextFormField(
+                    controller: _cardHolderNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Cardholder Name',
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
+                    validator: (value) => (value == null || value.trim().isEmpty) ? 'Please enter cardholder name' : null,
+                    textCapitalization: TextCapitalization.words,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Card Number
+                  TextFormField(
+                    controller: _cardNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Card Number',
+                      hintText: 'XXXX XXXX XXXX XXXX',
+                      prefixIcon: Icon(Icons.credit_card),
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(16),
+                      _CardNumberInputFormatter(),
+                    ],
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Enter card number';
+                      String cleaned = value.replaceAll(' ', '');
+                      if (cleaned.length != 16) return 'Enter a valid 16-digit card number';
+                      return null;
+                    },
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                  ),
+                  const SizedBox(height: 12),
+
+                  Row(
                     children: [
-                      CupertinoTextFormFieldRow(
-                        controller: _cardHolderNameController,
-                        prefix: const Text('Name'),
-                        placeholder: 'Cardholder Name',
-                        validator: (value) => (value == null || value.trim().isEmpty)
-                            ? 'Required' : null,
-                        textCapitalization: TextCapitalization.words,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                      ),
-                      CupertinoTextFormFieldRow(
-                        controller: _cardNumberController,
-                        prefix: const Text('Number'),
-                        placeholder: 'XXXX XXXX XXXX XXXX',
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(16),
-                          _CardNumberInputFormatter(),
-                        ],
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return 'Required';
-                          String cleaned = value.replaceAll(' ', '');
-                          if (cleaned.length != 16) return 'Invalid card number';
-                          return null;
-                        },
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CupertinoTextFormFieldRow(
-                              controller: _expiryDateController,
-                              prefix: const Text('Expiry'),
-                              placeholder: 'MM/YY',
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(4),
-                                _ExpiryDateInputFormatter(),
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) return 'Required';
-                                if (!RegExp(r'^(0[1-9]|1[0-2])\/?([0-9]{2})$').hasMatch(value)) {
-                                  return 'Invalid format';
-                                }
-                                final parts = value.split('/');
-                                final month = int.tryParse(parts[0]);
-                                final year = int.tryParse('20${parts[1]}');
-                                final now = DateTime.now();
-                                if (month == null || year == null) return 'Invalid date';
-                                if (year < now.year || (year == now.year && month < now.month)) {
-                                  return 'Card expired';
-                                }
-                                return null;
-                              },
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
-                            ),
+                      // Expiry Date
+                      Expanded(
+                        child: TextFormField(
+                          controller: _expiryDateController,
+                          decoration: const InputDecoration(
+                            labelText: 'Expiry Date',
+                            hintText: 'MM/YY',
+                            prefixIcon: Icon(Icons.calendar_month_outlined),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: CupertinoTextFormFieldRow(
-                              controller: _cvvController,
-                              prefix: const Text('CVV'),
-                              placeholder: '123',
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(4),
-                              ],
-                              validator: (value) {
-                                if (value == null || value.isEmpty) return 'Required';
-                                if (value.length < 3 || value.length > 4) return 'Invalid CVV';
-                                return null;
-                              },
-                              obscureText: true,
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
-                            ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                            _ExpiryDateInputFormatter(),
+                          ],
+                          validator: (value) {
+                            if (value == null || value.isEmpty) return 'Enter expiry';
+                            if (!RegExp(r'^(0[1-9]|1[0-2])\/?([0-9]{2})$').hasMatch(value)) {
+                              return 'Use MM/YY format';
+                            }
+                            final parts = value.split('/');
+                            final month = int.tryParse(parts[0]);
+                            final year = int.tryParse('20${parts[1]}');
+                            final now = DateTime.now();
+                            if (month == null || year == null) return 'Invalid date';
+                            if (year < now.year || (year == now.year && month < now.month)) {
+                              return 'Card expired';
+                            }
+                            return null;
+                          },
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // CVV
+                      Expanded(
+                        child: TextFormField(
+                          controller: _cvvController,
+                          decoration: const InputDecoration(
+                            labelText: 'CVV',
+                            hintText: '123',
+                            prefixIcon: Icon(Icons.password_outlined),
                           ),
-                        ],
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                          ],
+                          validator: (value) {
+                            if (value == null || value.isEmpty) return 'Enter CVV';
+                            if (value.length < 3 || value.length > 4) return 'Invalid CVV';
+                            return null;
+                          },
+                          obscureText: true,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                        ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 32),
-
-                  CupertinoButton.filled(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    onPressed: (_isLoading || _isLoadingTotal) ? null : _processPayment,
-                    child: _isLoading
-                        ? const CupertinoActivityIndicator()
-                        : Text('Pay \$${_totalAmount.toStringAsFixed(2)}'),
-                  ),
-                ]),
+                ],
               ),
             ),
+
+            const SizedBox(height: 35),
+
+            // --- Payment Button ---
+            Center(
+              child: ElevatedButton.icon(
+                icon: _isLoading ? Container() : const Icon(Icons.lock_outline),
+                label: _isLoading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
+                    : Text('Pay \$${_totalAmount.toStringAsFixed(2)}'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                onPressed: (_isLoading || _isLoadingTotal) ? null : _processPayment,
+              ),
+            ),
+            const SizedBox(height: 20), // Add some padding at the bottom
           ],
         ),
       ),
@@ -492,6 +539,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
+
+// --- Custom Input Formatters ---
 class _CardNumberInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {

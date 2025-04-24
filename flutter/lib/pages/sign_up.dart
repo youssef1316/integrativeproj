@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,7 +35,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? CupertinoColors.systemRed : CupertinoColors.activeGreen,
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : Colors.green,
       ),
     );
   }
@@ -45,10 +44,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() { _isLoading = true; });
 
     try {
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -75,9 +71,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
         if (!mounted) return;
         Navigator.pop(context);
+
       } else {
         _showSnackBar("Sign up failed. Could not create user.", isError: true);
       }
+
     } on FirebaseAuthException catch (e) {
       String message = "An error occurred. Please try again.";
       if (e.code == 'weak-password') {
@@ -91,134 +89,140 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
       print("FirebaseAuthException: ${e.code} - ${e.message}");
       _showSnackBar(message, isError: true);
-    } catch (e) {
+    } catch(e) {
       print("General SignUp Error: $e");
       _showSnackBar("An unexpected error occurred: $e", isError: true);
     } finally {
-      if (mounted) setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() { _isLoading = false; });
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text("Sign Up"),
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Sign Up"),
+        centerTitle: true,
       ),
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  CupertinoTextFormFieldRow(
-                    controller: _nameController,
-                    placeholder: 'Full Name',
-                    prefix: const Icon(CupertinoIcons.person),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your name';
-                      }
-                      return null;
-                    },
-                    textCapitalization: TextCapitalization.words,
-                  ),
-                  const SizedBox(height: 16),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: "Full Name", prefixIcon: Icon(Icons.person_outline), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your name';
+                    }
+                    return null;
+                  },
+                  textCapitalization: TextCapitalization.words,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 16),
 
-                  CupertinoTextFormFieldRow(
-                    controller: _emailController,
-                    placeholder: 'Email',
-                    prefix: const Icon(CupertinoIcons.mail),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      bool emailValid = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
-                          .hasMatch(value.trim());
-                      if (!emailValid) {
-                        return 'Please enter a valid email format';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    bool emailValid = RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
+                        .hasMatch(value.trim());
+                    if (!emailValid) {
+                      return 'Please enter a valid email format';
+                    }
+                    return null;
+                  },
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 16),
 
-                  CupertinoTextFormFieldRow(
-                    controller: _passwordController,
-                    placeholder: 'Password',
-                    prefix: const Icon(CupertinoIcons.lock),
-                    obscureText: !_passwordVisible,
-                    suffix: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-                      child: Icon(_passwordVisible ? CupertinoIcons.eye_slash : CupertinoIcons.eye),
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: IconButton(
+                        icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _passwordVisible = !_passwordVisible)),
+                  ),
+                  obscureText: !_passwordVisible,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  decoration: InputDecoration(
+                    labelText: "Confirm Password",
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: IconButton(
+                        icon: Icon(_confirmPasswordVisible ? Icons.visibility_off : Icons.visibility),
+                        onPressed: () => setState(() => _confirmPasswordVisible = !_confirmPasswordVisible)),
+                  ),
+                  obscureText: !_confirmPasswordVisible,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                ),
+                const SizedBox(height: 24),
+
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _signUpUser,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                      : const Text("Sign Up", style: TextStyle(fontSize: 16)),
+                ),
+                const SizedBox(height: 16),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Already have an account?"),
+                    TextButton(
+                      onPressed: _isLoading ? null : () {
+                        Navigator.pop(context);
+                      },
+                      child: const Text("Log In"),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  CupertinoTextFormFieldRow(
-                    controller: _confirmPasswordController,
-                    placeholder: 'Confirm Password',
-                    prefix: const Icon(CupertinoIcons.lock_shield),
-                    obscureText: !_confirmPasswordVisible,
-                    suffix: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
-                      child: Icon(_confirmPasswordVisible ? CupertinoIcons.eye_slash : CupertinoIcons.eye),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please confirm your password';
-                      }
-                      if (value != _passwordController.text) {
-                        return 'Passwords do not match';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: CupertinoButton.filled(
-                      onPressed: _isLoading ? null : _signUpUser,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: _isLoading
-                          ? const CupertinoActivityIndicator()
-                          : const Text("Sign Up"),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Already have an account?"),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: _isLoading ? null : () {
-                          Navigator.pop(context);
-                        },
-                        child: const Text("Log In"),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

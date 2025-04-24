@@ -789,4 +789,4 @@ class _EventCreationPageState extends State<EventCreationPage> {
       ),
     );
   }
-} // End of _EventCreationPageState class
+}

@@ -2,14 +2,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart'; // Make sure this import is present
 
 // --- RENAMED Class ---
-class FeedbackItem { // Use this name consistently
-  final String id; // Document ID for the feedback itself
+class FeedbackItem {
+  final String id;
   final String eventId;
-  final String? eventName; // Optional, as per screenshot
-  final String comment; // Mapped from feedbackText
-  final double rating; // Mapped from rating (handle int/double)
-  final String userId; // ID of the user who submitted
-  final Timestamp? submittedAt; // Timestamp from Firestore
+  final String? eventName;
+  final String comment;
+  final double rating;
+  final String userId;
+  final Timestamp? submittedAt;
 
   FeedbackItem({
     required this.id,
@@ -37,4 +37,4 @@ class FeedbackItem { // Use this name consistently
       submittedAt: data['submittedAt'] as Timestamp?, // Get the timestamp
     );
   }
-} // Make sure this closing brace for the class exists!
+}

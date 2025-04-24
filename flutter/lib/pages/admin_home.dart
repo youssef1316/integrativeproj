@@ -2,14 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
-// Make sure these imports point to the correct page files
-// import 'package:eventmangment/pages/eventcreation.dart';
-// import 'package:eventmangment/pages/viewevents.dart';
-// Import main.dart or your routes file to access AppRoutes constants
 import 'package:eventmangment/main.dart'; // Ensure AppRoutes constants exist
 
-// --- Constants ---
-// (Keep constants as they were in your previous version)
 class _AppSpacings {
   static const double verticalButtonSpacing = 20.0;
   static const double bottomButtonSpacing = 40.0;
@@ -34,9 +28,7 @@ class _AppColors {
   static const Color appBarBackground = Colors.white;
   static const Color logoutButtonBorder = Colors.redAccent;
 }
-// --- End Constants ---
 
-// --- Changed Widget to StatefulWidget ---
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
 
@@ -46,17 +38,15 @@ class AdminHomePage extends StatefulWidget {
 
 class _AdminHomePageState extends State<AdminHomePage> { // State class
 
-  // Helper method for navigation (now inside State)
+
   void _navigateTo(BuildContext context, String routeName, {Object? arguments}) {
-    // Pass arguments if provided
     Navigator.pushNamed(context, routeName, arguments: arguments);
   }
 
-  // --- Logout Function (now inside State) ---
-  Future<void> _logout() async { // Removed context parameter, uses widget's context
+  Future<void> _logout() async {
     try {
       await FirebaseAuth.instance.signOut();
-      if (mounted) { // Use mounted check available in State
+      if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.login,
@@ -76,25 +66,21 @@ class _AdminHomePageState extends State<AdminHomePage> { // State class
     }
   }
 
-  // --- Show Select Event Dialog Function ---
   Future<String?> _showSelectEventDialog(BuildContext context) async {
     List<Map<String, String>> eventList = [];
     bool isLoading = true;
     String? error;
-    String? selectedId; // State variable for the dropdown inside the dialog
-
-    // Use StatefulBuilder to manage state *within* the dialog
+    String? selectedId;
     return showDialog<String?>(
       context: context,
-      barrierDismissible: false, // User must choose an action
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return StatefulBuilder( // Allows updating dialog state
+        return StatefulBuilder(
           builder: (stfContext, stfSetState) {
-            // Fetch data only once when dialog builds if list is empty
             if (isLoading && eventList.isEmpty && error == null) {
               FirebaseFirestore.instance.collection('events').orderBy('name').get().then((snapshot) {
-                if (!mounted) return; // Check if main page is still mounted
-                stfSetState(() { // Update dialog state
+                if (!mounted) return;
+                stfSetState(() {
                   eventList = snapshot.docs.map((doc) {
                     final data = doc.data();
                     return {
@@ -107,7 +93,7 @@ class _AdminHomePageState extends State<AdminHomePage> { // State class
               }).catchError((e) {
                 print("Error fetching events for dialog: $e");
                 if (!mounted) return;
-                stfSetState(() { // Update dialog state
+                stfSetState(() {
                   error = "Failed to load events: ${e.toString()}";
                   isLoading = false;
                 });
@@ -116,11 +102,11 @@ class _AdminHomePageState extends State<AdminHomePage> { // State class
 
             return AlertDialog(
               title: const Text("Select Event for Report"),
-              content: SingleChildScrollView( // In case of error message or many events
+              content: SingleChildScrollView(
                 child: SizedBox(
-                  width: double.maxFinite, // Use available width
+                  width: double.maxFinite,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min, // Fit content
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       if (isLoading)
                         const Padding(

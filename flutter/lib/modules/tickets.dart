@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 
 class Ticket {
   // Use final for fields that don't change after creation
-  final String ticketId; // Unique ID for this specific ticket (e.g., eventId-Level-001)
-  final String eventId;  // ID of the event this ticket belongs to
-  final String levelName;// Name of the ticket level (e.g., "Gold", "Regular")
-  final double price;    // Price of this ticket level
-  final String status;   // e.g., "available", "sold", "checked_in", "cancelled"
-  final String? userId;  // UID of the user who bought it (null if available)
-  final Timestamp? purchaseTimestamp; // When it was bought (null if available)
+  final String ticketId;
+  final String eventId;
+  final String levelName;
+  final double price;
+  final String status;
+  final String? userId;
+  final Timestamp? purchaseTimestamp;
 
   Ticket({
     required this.ticketId,
