@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:eventmangment/main.dart'; // For AppRoutes (Ensure this path is correct)
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:qr_flutter/qr_flutter.dart'; // Import for QR code display
+import 'venue_layout_page.dart';//to view the venue layout
 
 // --- Styles Class ---
 class _UserHomeStyles {
@@ -385,6 +386,23 @@ class UserHomePage extends StatelessWidget {
               // -------------------------------------
 
               const SizedBox(height: _UserHomeStyles.buttonSpacing),
+
+              // --- View Venue Layout Button ---
+              ElevatedButton.icon(
+                icon: const Icon(Icons.location_city), // You can change this icon
+                label: const Text('View Venue Layout'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.surfaceVariant,
+                  foregroundColor: theme.colorScheme.onSurfaceVariant,
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const VenueLayoutPage()), //
+                  );
+                },
+              ),
 
               // --- Give Feedback Button ---
               OutlinedButton.icon(
