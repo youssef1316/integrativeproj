@@ -117,6 +117,9 @@ void main() async {
   );
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true,);
   await OnlineStatus.instance.init();
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
   runApp(const MyApp());
 }
@@ -181,6 +184,9 @@ class MyApp extends StatelessWidget {
           ],
         );
       },
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     );
   }
